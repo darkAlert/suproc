@@ -8,4 +8,4 @@ AVA Single Unique Process
 
 python3 -m build
 pip3 uninstall suproc -y
-pip3 install dist/suproc-0.9.0-py3-none-any.whl
+pip3 install dist/suproc-0.9.1-py3-none-any.whl

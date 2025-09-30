@@ -101,11 +101,18 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
 def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=False,
                              pid_dir='/var/run/ava/', log_dir='/var/log/ava/', parent=None):
     if cmds is None:
-        cmds = ['true']            # dummy command
-    if not os.path.exists(pid_dir):
-        os.makedirs(pid_dir)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        cmds = ['true']            # dummy command for NONE
+
+    # Check directories:
+    try:
+        if not os.path.exists(pid_dir):
+            os.makedirs(pid_dir)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+    except PermissionError:
+        logger = AvaLogger.get_logger(__NAME__)
+        logger.error(f"Permission denied: {pid_dir} or {log_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+        return -8
 
     # If the process is not a daemon, then write the log to stdout/stderr, otherwise - to a file:
     if parent is None:
@@ -378,6 +385,13 @@ def print_log(name,  log_dir='/var/log/ava/', follow=False, last_n=10, session=N
 def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=False):
     logger = AvaLogger.get_logger(__NAME__)
 
+    # Check perrmisions:
+    try:
+        os.listdir(log_dir)
+    except PermissionError:
+        logger.error(f"Permission denied: {log_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+        return -8
+
     if clear:
         removing = []
     else:
@@ -429,6 +443,13 @@ def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=Fa
 
 def runs(pid_dir='/var/run/ava/', show_all=False):
     logger = AvaLogger.get_logger(__NAME__)
+
+    # Check perrmisions:
+    try:
+        os.listdir(pid_dir)
+    except PermissionError:
+        logger.error(f"Permission denied: {pid_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+        return -8
 
     # Create Table printer:
     header = f"|                Name                |     PID     |  Daemon  |    State    |"
@@ -496,8 +517,6 @@ def main():
     parser_run = subparsers.add_parser(CMD_RUN, help='Create and run a single instance process')
     parser_run.add_argument( 'name', type=str, default=None,
                              help='Process name to run')
-    # parser_run.add_argument('-c', '--cmd', type=str, default='true',
-    #                         help='Command string')
     parser_run.add_argument('-c', '--cmds', nargs='+', default='true',
                             help='List of command strings')
     parser_run.add_argument('-f', '--force', action='store_true', default=False,

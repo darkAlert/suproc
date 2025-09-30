@@ -11,7 +11,7 @@ bash install.sh
 
 ### Installation via PIP
 ```
-pip3 install git+https://github.com/darkAlert/suproc.git
+pip3 install git+https://github.com/darkAlert/suproc.git#egg=suproc
 ```
 
 ### Uninstalling
@@ -25,6 +25,12 @@ Create directories for pid files and logs:
 echo "d /var/run/ava 0755 ${id -nu} ${id -gn}" | sudo tee /usr/lib/tmpfiles.d/ava.conf
 sudo mkdir /var/run/ava/ /var/log/ava/
 sudo chown ${id -nu}:${id -gn} /var/run/ava/ /var/log/ava/
+```
+
+### Troubleshooting
+Update pip if the package is installed with the name UNKNOWN:
+```
+python3 -m pip install --upgrade pip
 ```
 
 ## Usage
