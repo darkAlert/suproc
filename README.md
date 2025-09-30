@@ -23,7 +23,7 @@ pip3 uninstall suproc -y
 Available commands:
 - `run` Create and run a single instance process
 - `kill` Kill a single instance process by its name
-- `log` Print logs of a single instance process by its name
+- `log` Print logs of a single instance process by its name (NOTE: the log is created only for processes running in daemon mode)
 - `runs` Print a list of processes
 - `logs` Print a list of logs of processes
 
@@ -75,7 +75,7 @@ Same thing, but the process will be run in daemon mode:
 suproc run test -d -c='ls / -l'
 ```
 
-Show the log of the running process (NOTE: the log is created only for processes running in daemon mode):
+Show the log of the running process:
 ```
 suproc log test
 ```
