@@ -500,18 +500,24 @@ def init(pid_dir='/var/run/ava/', log_dir='/var/log/ava/'):
 
     cmds = [
         f'echo "d {pid_dir} 0755 $(id -nu) $(id -gn)" | sudo tee /usr/lib/tmpfiles.d/ava.conf',
-        f'mkdir {pid_dir} {log_dir}',
+        f'sudo mkdir {pid_dir} {log_dir}',
         f'chown $(id -nu):$(id -gn) {pid_dir} {log_dir}'
     ]
 
-    out = check_output(cmds[0].split()).decode("utf-8")
-    logger.info(out)
+    try:
+        out = check_output(cmds[0].split()).decode("utf-8")
+        logger.info(out)
 
-    out = check_output(cmds[1].split()).decode("utf-8")
-    logger.info(out)
+        out = check_output(cmds[1].split()).decode("utf-8")
+        logger.info(out)
 
-    out = check_output(cmds[2].split()).decode("utf-8")
-    logger.info(out)
+        out = check_output(cmds[2].split()).decode("utf-8")
+        logger.info(out)
+    except Exception as e:
+        logger.error(e)
+        return -1
+
+    return 0
 
 
 def main():
