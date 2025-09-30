@@ -19,6 +19,7 @@ CMD_KILL = 'kill'
 CMD_LOG  = 'log'
 CMD_RUNS  = 'runs'
 CMD_LOGS  = 'logs'
+CMD_INIT = 'init'
 PID_HEADER = '=== PID:'
 LOCK_PROC = '__lock'
 KILLER_PROC = '__killer'
@@ -475,6 +476,18 @@ def runs(pid_dir='/var/run/ava/', show_all=False):
     table.print_special('outer')
 
 
+def init(pid_dir='/var/run/ava/', log_dir='/var/log/ava/'):
+    cmds = [
+        f'echo "d {pid_dir} 0755 $(id -nu) $(id -gn)" | sudo tee /usr/lib/tmpfiles.d/ava.conf',
+        f'mkdir {pid_dir} {log_dir}',
+        f'chown $(id -nu):$(id -gn) {pid_dir} {log_dir}'
+    ]
+    if run_single_instance_proc(name='__init', pid_dir=pid_dir, cmds=cmds) >= 0:
+        return 0
+    else:
+        return -1
+
+
 def main():
     parser = argparse.ArgumentParser('ava-proc')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -548,6 +561,13 @@ def main():
     parser_logs.add_argument('-p', '--paths', action='store_true', default=False,
                              help='Print log file paths instead of log names')
 
+    # Create a subparser for the 'INIT' command:
+    parser_init = subparsers.add_parser(CMD_INIT, help='Initialize and create directories for PID files and LOG files')
+    parser_init.add_argument('-pd', '--pdir', type=str, default='/var/run/ava/',
+                             help='PIDLockFile directory')
+    parser_init.add_argument('-ld', '--ldir', type=str, default='/var/log/ava/',
+                            help='Logs directory')
+
 
     args = parser.parse_args()
 
@@ -588,6 +608,11 @@ def main():
             log_dir=args.ldir,
             paths=args.paths,
             clear=args.clear
+        )
+    elif args.command == CMD_INIT:
+        init(
+            pid_dir=args.pdir,
+            log_dir=args.ldir
         )
     else:
         parser.print_help()

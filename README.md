@@ -19,6 +19,14 @@ pip3 install git+https://github.com/darkAlert/suproc.git
 pip3 uninstall suproc -y
 ```
 
+### Create PID directory
+Create directories for pid files and logs:
+```
+echo "d /var/run/ava 0755 ${id -nu} ${id -gn}" | sudo tee /usr/lib/tmpfiles.d/ava.conf
+sudo mkdir /var/run/ava/ /var/log/ava/
+sudo chown ${id -nu}:${id -gn} /var/run/ava/ /var/log/ava/
+```
+
 ## Usage
 Available commands:
 - `run` Create and run a single instance process
