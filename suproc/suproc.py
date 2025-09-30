@@ -385,11 +385,9 @@ def print_log(name,  log_dir='/var/log/ava/', follow=False, last_n=10, session=N
 def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=False):
     logger = AvaLogger.get_logger(__NAME__)
 
-    # Check perrmisions:
-    try:
-        os.listdir(log_dir)
-    except PermissionError:
-        logger.error(f"Permission denied: {log_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+    # Check directories:
+    if not os.path.exists(log_dir):
+        logger.error(f"No such directory: {log_dir}. Try running '{__NAME__} {CMD_INIT}' first")
         return -8
 
     if clear:
@@ -444,11 +442,9 @@ def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=Fa
 def runs(pid_dir='/var/run/ava/', show_all=False):
     logger = AvaLogger.get_logger(__NAME__)
 
-    # Check perrmisions:
-    try:
-        os.listdir(pid_dir)
-    except PermissionError:
-        logger.error(f"Permission denied: {pid_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+    # Check directories:
+    if not os.path.exists(pid_dir):
+        logger.error(f"No such directory: {pid_dir}. Try running '{__NAME__} {CMD_INIT}' first")
         return -8
 
     # Create Table printer:
