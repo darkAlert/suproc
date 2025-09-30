@@ -1,0 +1,23 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0", "wheel"]
+
+[project]
+name = "suproc"
+version = "0.9.0"
+description = "AVA Single Unique Process"
+authors = [
+  { name="anton vitvitsky", email="darkalert2517@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pidlockfile"
+]
+
+[project.scripts]
+suproc = "suproc.suproc:main"
