@@ -29,7 +29,7 @@ Available commands:
 
 #### run
 - `name`                       Process name to run
-- `-c CMD, --cmd CMD`          Command string
+- `-c CMDS, --cmds CMDS`       List of command strings
 - `-f, --force`                Kill the running process and restart it
 - `-d, --daemon`               Create a daemon process
 - `-pd PDIR, --pdir PDIR`      PIDLockFile directory (`/var/run/ava/` by default)

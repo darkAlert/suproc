@@ -97,8 +97,10 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
         return None
 
 
-def run_single_instance_proc(name, cmd='true', force=False, daemon=False,
+def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=False,
                              pid_dir='/var/run/ava/', log_dir='/var/log/ava/', parent=None):
+    if cmds is None:
+        cmds = ['true']            # dummy command
     if not os.path.exists(pid_dir):
         os.makedirs(pid_dir)
     if not os.path.exists(log_dir):
@@ -120,7 +122,9 @@ def run_single_instance_proc(name, cmd='true', force=False, daemon=False,
 
     # Create a daemon:
     if daemon:
-        cmd = f'{__NAME__} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmd="{cmd}"'
+        cmd_list = '" "'.join(cmd for cmd in cmds)
+        cmd = f'{__NAME__} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmds "{cmd_list}"'
+
         try:
             with pidlockfile.PIDLockFile(_lockfile, timeout=0.1):
                 # Check the PIDLockFile of the created process:
@@ -129,17 +133,16 @@ def run_single_instance_proc(name, cmd='true', force=False, daemon=False,
                     return -1
 
                 # Run detached process:
-                cmds = shlex.split(cmd)
-                process = subprocess.Popen(cmds, start_new_session=True, stdout=subprocess.DEVNULL,
+                process = subprocess.Popen(shlex.split(cmd), start_new_session=True, stdout=subprocess.DEVNULL,
                                            stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
 
                 # Check that the process started successfully and created a lock file:
-                for i in range(10):
+                for i in range(20):
                     pid = read_pid_from_pidfile(pidfile)
                     if pid is not None and abs(pid) == process.pid:
                         logger.info(f'Daemon with PID:{process.pid} successfully created!')
                         return process.pid
-                    time.sleep(0.1)
+                    time.sleep(0.05)
 
                 logger.error(f'Cannot create a daemon with pidfile={pidfile}!')
                 return -2
@@ -154,30 +157,39 @@ def run_single_instance_proc(name, cmd='true', force=False, daemon=False,
     # Run command:
     try:
         with pidlockfile.PIDLockFile(pidfile, timeout=0.1):
+            returncode = None
+
             # If the parent process is None, then the current process is not detached (not a daemon):
             if parent is None:
                 with open(pidfile, "r+") as pf:
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
+            else:
+                logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)} ===')
 
             # Run attached process:
-            cmds = shlex.split(cmd)
-            if parent is not None:
-                logger.info(f'{PID_HEADER}{os.getpid()} ===')
-                logger.info(f'= CMD: "{cmd}"')
-            try:
-                process = subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                           stdin=subprocess.PIPE, bufsize=1, text=True)
-                _print_proc_output(process, logger)
-                returncode = process.returncode
-                if parent is not None:
-                    logger.info(f'= Process finished with exit code: {returncode}')
-            except KeyboardInterrupt:
-                logger.error(f'KeyboardInterrupt')
-                return -9
-            except Exception as e:
-                logger.error(f'{e}\n')
-                return -4
+            for i, cmd in enumerate(cmds):
+                if parent is not None or len(cmds) > 1:
+                    logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
+                try:
+                    process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                               stdin=subprocess.PIPE, bufsize=1, text=True)
+                    _print_proc_output(process, logger)
+                    returncode = process.returncode
+                    if parent is not None:
+                        logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
+                except KeyboardInterrupt:
+                    logger.error(f'KeyboardInterrupt')
+                    return -9
+                except Exception as e:
+                    logger.error(f'{e}\n')
+                    return -4
+
+                if returncode != 0:
+                    if i+1 < len(cmds):
+                        logger.info(f'= Aborted! The last command completed with a non-zero returncode!')
+                    break
+
         return returncode
 
     except pidlockfile.LockTimeout:
@@ -203,8 +215,10 @@ def kill_proc(name, force=False, pid_dir='/var/run/ava/', log_dir='/var/log/ava/
         cmd = f'{__NAME__} {CMD_KILL} {name} -pd={pid_dir} -ld={log_dir} --no-killer-proc'
         if force:
             cmd += ' --force'
+        if purge:
+            cmd += ' --purge'
 
-        if run_single_instance_proc(name=killer_proc, pid_dir=pid_dir, cmd=cmd) < 0:
+        if run_single_instance_proc(name=killer_proc, pid_dir=pid_dir, cmds=[cmd]) < 0:
             return
 
         # Remove the PID file of the killed process:
@@ -244,10 +258,10 @@ def kill_proc(name, force=False, pid_dir='/var/run/ava/', log_dir='/var/log/ava/
                 logger.error(f"Unable to kill the current process:{cur_pid}! Use --force to force kill")
                 return -3
             os.kill(abs(pid), signal.SIGTERM)
-            logger.info(f"Process killed: '{name}' PID:{pid}")
+            logger.info(f"Process killed: PID:{pid}")
         except ProcessLookupError:
             if not purge:
-                logger.error(f'No alive process with PID:{pid}! Use --purge to delete PID file')
+                logger.error(f'No alive process with PID:{pid}! Use --purge to delete its PID file')
                 return -4
 
     return 0
@@ -469,8 +483,10 @@ def main():
     parser_run = subparsers.add_parser(CMD_RUN, help='Create and run a single instance process')
     parser_run.add_argument( 'name', type=str, default=None,
                              help='Process name to run')
-    parser_run.add_argument('-c', '--cmd', type=str, default='true',
-                            help='Command string')
+    # parser_run.add_argument('-c', '--cmd', type=str, default='true',
+    #                         help='Command string')
+    parser_run.add_argument('-c', '--cmds', nargs='+', default='true',
+                            help='List of command strings')
     parser_run.add_argument('-f', '--force', action='store_true', default=False,
                             help='Kill the running process and restart it')
     parser_run.add_argument('-d', '--daemon', action='store_true', default=False,
@@ -505,9 +521,9 @@ def main():
                             help='Logs directory')
     parser_log.add_argument('-f', '--follow', action='store_true', default=False,
                              help='Follow new lines and print them as they appear')
-    parser_log.add_argument('-n', '--last-n', type=int, default=10,
+    parser_log.add_argument('-n', '--last-n', type=int, default=20,
                              help='The number of lines to print from the end of the file')
-    parser_log.add_argument('-s', '--session', type=int, default=None,
+    parser_log.add_argument('-s', '--session', nargs='?', type=int, default=None, const=-1,
                             help=' Print the full log of the specified process session')
     parser_log.add_argument('-rm', '--remove', action='store_true', default=False,
                             help='Remove a log file by process name')
@@ -538,7 +554,7 @@ def main():
     if args.command == CMD_RUN:
         run_single_instance_proc(
             name=args.name,
-            cmd=args.cmd,
+            cmds=args.cmds,
             force=args.force,
             daemon=args.daemon,
             pid_dir=args.pdir,
