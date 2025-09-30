@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [tool.setuptools.package-dir]
-recap = "recap"
+suproc = "suproc"
 
 [project.scripts]
 suproc = "suproc.suproc:main"
