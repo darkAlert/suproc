@@ -4,7 +4,7 @@ requires = ["setuptools>=62.6", "wheel"]
 
 [project]
 name = "suproc"
-version = "0.9.0"
+#version = "0.9.0"
 description = "AVA Single Unique Process"
 authors = [
   { name="anton vitvitsky", email="darkalert2517@gmail.com" },
