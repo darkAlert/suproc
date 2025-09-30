@@ -111,7 +111,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
             os.makedirs(log_dir)
     except PermissionError:
         logger = AvaLogger.get_logger(__NAME__)
-        logger.error(f"Permission denied: {pid_dir} or {log_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+        logger.error(f"Permission denied: '{pid_dir}' or '{log_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
         return -8
 
     # If the process is not a daemon, then write the log to stdout/stderr, otherwise - to a file:
@@ -387,7 +387,7 @@ def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=Fa
 
     # Check directories:
     if not os.path.exists(log_dir):
-        logger.error(f"No such directory: {log_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+        logger.error(f"No such directory: '{log_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
         return -8
 
     if clear:
@@ -444,7 +444,7 @@ def runs(pid_dir='/var/run/ava/', show_all=False):
 
     # Check directories:
     if not os.path.exists(pid_dir):
-        logger.error(f"No such directory: {pid_dir}. Try running '{__NAME__} {CMD_INIT}' first")
+        logger.error(f"No such directory: '{pid_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
         return -8
 
     # Create Table printer:
@@ -494,15 +494,24 @@ def runs(pid_dir='/var/run/ava/', show_all=False):
 
 
 def init(pid_dir='/var/run/ava/', log_dir='/var/log/ava/'):
+    from subprocess import check_output
+
+    logger = AvaLogger.get_logger(__NAME__)
+
     cmds = [
         f'echo "d {pid_dir} 0755 $(id -nu) $(id -gn)" | sudo tee /usr/lib/tmpfiles.d/ava.conf',
         f'mkdir {pid_dir} {log_dir}',
         f'chown $(id -nu):$(id -gn) {pid_dir} {log_dir}'
     ]
-    if run_single_instance_proc(name='__init', pid_dir=pid_dir, cmds=cmds) >= 0:
-        return 0
-    else:
-        return -1
+
+    out = check_output(cmds[0].split()).decode("utf-8")
+    logger.info(out)
+
+    out = check_output(cmds[1].split()).decode("utf-8")
+    logger.info(out)
+
+    out = check_output(cmds[2].split()).decode("utf-8")
+    logger.info(out)
 
 
 def main():
