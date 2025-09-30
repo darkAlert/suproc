@@ -19,5 +19,8 @@ dependencies = [
     "pidlockfile"
 ]
 
+[tool.setuptools.package-dir]
+recap = "recap"
+
 [project.scripts]
 suproc = "suproc.suproc:main"
