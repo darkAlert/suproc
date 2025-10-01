@@ -23,6 +23,8 @@ CMD_INIT = 'init'
 PID_HEADER = '=== PID:'
 LOCK_PROC = '__lock'
 KILLER_PROC = '__killer'
+PID_DIR = '/var/run/ava/'
+LOG_DIR = '/var/log/ava/'
 
 
 def _print_proc_output(process, logger):
@@ -99,7 +101,7 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
 
 
 def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=False,
-                             pid_dir='/var/run/ava/', log_dir='/var/log/ava/', parent=None):
+                             pid_dir=PID_DIR, log_dir=LOG_DIR, parent=None):
     if cmds is None:
         cmds = ['true']            # dummy command for NONE
 
@@ -208,7 +210,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
         return -4
 
 
-def kill_proc(name, force=False, pid_dir='/var/run/ava/', log_dir='/var/log/ava/',
+def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
               killer_proc: None | str=KILLER_PROC, purge=False):
     logger = AvaLogger.get_logger(__NAME__)
 
@@ -275,7 +277,7 @@ def kill_proc(name, force=False, pid_dir='/var/run/ava/', log_dir='/var/log/ava/
     return 0
 
 
-def print_log(name,  log_dir='/var/log/ava/', follow=False, last_n=10, session=None, remove=False, clear=False):
+def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, remove=False, clear=False):
     """
     Prints logs of running processes.
 
@@ -382,7 +384,7 @@ def print_log(name,  log_dir='/var/log/ava/', follow=False, last_n=10, session=N
         logger.error(e)
 
 
-def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=False):
+def logs(pid_dir=PID_DIR, log_dir=LOG_DIR, paths=False, clear=False):
     logger = AvaLogger.get_logger(__NAME__)
 
     # Check directories:
@@ -439,7 +441,7 @@ def logs(pid_dir='/var/run/ava/', log_dir='/var/log/ava/', paths=False, clear=Fa
             logger.debug(f'{counter} files deleted!')
 
 
-def runs(pid_dir='/var/run/ava/', show_all=False):
+def runs(pid_dir=PID_DIR, show_all=False):
     logger = AvaLogger.get_logger(__NAME__)
 
     # Check directories:
@@ -493,31 +495,49 @@ def runs(pid_dir='/var/run/ava/', show_all=False):
     table.print_special('outer')
 
 
-def init(pid_dir='/var/run/ava/', log_dir='/var/log/ava/'):
-    from subprocess import check_output
-
+def init(pid_dir=PID_DIR, log_dir=LOG_DIR):
     logger = AvaLogger.get_logger(__NAME__)
 
-    cmds = [
-        f'echo "d {pid_dir} 0755 $(id -nu) $(id -gn)" | sudo tee /usr/lib/tmpfiles.d/ava.conf',
-        f'sudo mkdir {pid_dir} {log_dir}',
-        f'chown $(id -nu):$(id -gn) {pid_dir} {log_dir}'
-    ]
-
+    # Get username and user main group:
+    import getpass, grp, pwd
+    username = getpass.getuser()
     try:
-        print(cmds[0])
-        print(cmds[0].split())
-        out = check_output(cmds[0].split()).decode("utf-8")
-        logger.info(out)
+        user_info = pwd.getpwnam(username)
+        primary_gid = user_info.pw_gid
+        group_name = grp.getgrgid(primary_gid).gr_name
+    except KeyError:
+        logger.error(f"User '{username}' not found!")
+        return -1
 
-        # out = check_output(cmds[1].split()).decode("utf-8")
-        # logger.info(out)
-        #
-        # out = check_output(cmds[2].split()).decode("utf-8")
-        # logger.info(out)
+    # Ask user:
+    question = f"Create and configure {pid_dir} as PID directory and {log_dir} as LOG directory? (yes/no): "
+    if not ask_user_yes_no(question, logger=logger):
+        return -5
+
+    # Commands:
+    cmd1 = f'echo "d {pid_dir} 0755 {username} {group_name}" | sudo tee /usr/lib/tmpfiles.d/ava-test.conf'
+    cmd2 = f'sudo mkdir -p {pid_dir} {log_dir}'
+    cmd3 = f'sudo chown {username}:{group_name} {pid_dir} {log_dir}'
+
+    # Execute:
+    try:
+        for cmd in [cmd1, cmd2, cmd3]:
+            process = subprocess.Popen(cmd, text=True, shell=True, executable="/bin/bash",
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            _, stderr = process.communicate()
+            if process.returncode != 0:
+                logger.error(f"Command failed: '{cmd}'")
+                logger.error(stderr)
+                return -4
+
+        if process.returncode == 0:
+            logger.info(f'Directories {pid_dir} and {log_dir} successfully created for {username}:{group_name}!')
+        else:
+            logger.info(f'Failed to create directories {pid_dir} and {log_dir} for {username}:{group_name}!')
+
     except Exception as e:
         logger.error(e)
-        return -1
+        return -2
 
     return 0
 
@@ -536,9 +556,9 @@ def main():
                             help='Kill the running process and restart it')
     parser_run.add_argument('-d', '--daemon', action='store_true', default=False,
                             help='Create a daemon process')
-    parser_run.add_argument('-pd', '--pdir', type=str, default='/var/run/ava/',
+    parser_run.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                             help='PIDLockFile directory')
-    parser_run.add_argument('-ld', '--ldir', type=str, default='/var/log/ava/',
+    parser_run.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
                             help='Logs directory')
     parser_run.add_argument('-p', '--parent', type=int, default=None,
                             help='The parent process ID.')
@@ -553,16 +573,16 @@ def main():
                              help='If set, the current process may also be killed!')
     parser_kill.add_argument('-p', '--purge', action='store_true', default=False,
                              help='Remove the pid file and log file of the killed process')
-    parser_kill.add_argument('-pd', '--pdir', type=str, default='/var/run/ava/',
+    parser_kill.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                              help='PIDLockFile directory')
-    parser_kill.add_argument('-ld', '--ldir', type=str, default='/var/log/ava/',
+    parser_kill.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
                              help='Logs directory')
 
     # Create a subparser for the 'LOG' command:
     parser_log = subparsers.add_parser(CMD_LOG, help='Print logs of a single instance process by its name')
     parser_log.add_argument('name', type=str, default=None,
                             help='Process name to print its log')
-    parser_log.add_argument('-ld', '--ldir', type=str, default='/var/log/ava/',
+    parser_log.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
                             help='Logs directory')
     parser_log.add_argument('-f', '--follow', action='store_true', default=False,
                              help='Follow new lines and print them as they appear')
@@ -577,16 +597,16 @@ def main():
 
     # Create a subparser for the 'RUNS' command:
     parser_runs = subparsers.add_parser(CMD_RUNS, help='Print a list of processes')
-    parser_runs.add_argument('-pd', '--pdir', type=str, default='/var/run/ava/',
+    parser_runs.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                              help='PIDLockFile directory')
     parser_runs.add_argument('-a', '--all', action='store_true', default=False,
                              help='Print processes with any state')
 
     # Create a subparser for the 'LOGS' command:
     parser_logs = subparsers.add_parser(CMD_LOGS, help='Print a list of logs of processes')
-    parser_logs.add_argument('-pd', '--pdir', type=str, default='/var/run/ava/',
+    parser_logs.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                              help='PIDLockFile directory')
-    parser_logs.add_argument('-ld', '--ldir', type=str, default='/var/log/ava/',
+    parser_logs.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
                             help='Logs directory')
     parser_logs.add_argument('-c', '--clear', action='store_true', default=False,
                              help='Delete all logs without processes')
@@ -595,9 +615,9 @@ def main():
 
     # Create a subparser for the 'INIT' command:
     parser_init = subparsers.add_parser(CMD_INIT, help='Initialize and create directories for PID files and LOG files')
-    parser_init.add_argument('-pd', '--pdir', type=str, default='/var/run/ava/',
+    parser_init.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                              help='PIDLockFile directory')
-    parser_init.add_argument('-ld', '--ldir', type=str, default='/var/log/ava/',
+    parser_init.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
                             help='Logs directory')
 
 
