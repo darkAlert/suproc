@@ -472,8 +472,9 @@ def runs(pid_dir=PID_DIR, show_all=False):
     table.print_special('outer')
 
 
-def init(pid_dir=PID_DIR, log_dir=LOG_DIR):
-    logger = AvaLogger.get_logger(__NAME__)
+def init(pid_dir=PID_DIR, log_dir=LOG_DIR, logger=None):
+    if logger is None:
+        logger = AvaLogger.get_logger(__NAME__)
 
     # Get username and user main group:
     import getpass, grp, pwd
