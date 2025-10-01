@@ -514,9 +514,9 @@ def init(pid_dir=PID_DIR, log_dir=LOG_DIR, logger=None):
                 return -4
 
         if process.returncode == 0:
-            logger.info(f'Directories {pid_dir} and {log_dir} successfully created for {username}:{group_name}!')
+            logger.info(f"Directories '{pid_dir}' and '{log_dir}' successfully created for '{username}:{group_name}'")
         else:
-            logger.info(f'Failed to create directories {pid_dir} and {log_dir} for {username}:{group_name}!')
+            logger.info(f"Failed to create directories '{pid_dir}' and '{log_dir}' for '{username}:{group_name}'")
 
     except Exception as e:
         logger.error(e)
