@@ -27,3 +27,4 @@ version = {attr = "suproc.__version__"}
 
 [project.scripts]
 suproc = "suproc.suproc:main"
+suproc-init= "suproc.initializer:main"

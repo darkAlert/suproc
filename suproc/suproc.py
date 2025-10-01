@@ -20,12 +20,13 @@ CMD_KILL = 'kill'
 CMD_LOG  = 'log'
 CMD_RUNS  = 'runs'
 CMD_LOGS  = 'logs'
-CMD_INIT = 'init'
+CMD_INIT = f'{__NAME__}-init'
 PID_HEADER = '=== PID:'
 LOCK_PROC = '__lock'
 KILLER_PROC = '__killer'
 PID_DIR = '/var/run/ava/'
 LOG_DIR = '/var/log/ava/'
+CONF_FILE ='/usr/lib/tmpfiles.d/ava.conf'
 
 
 def _print_proc_output(process, logger):
@@ -91,7 +92,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
     except PermissionError:
         if logger is None:
             logger = AvaLogger.get_logger(__NAME__)
-        logger.error(f"Permission denied: '{pid_dir}' or '{log_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
+        logger.error(f"Permission denied: '{pid_dir}' or '{log_dir}'. Try running '{CMD_INIT}' first")
         return -8
 
     # If the process is not a daemon, then write the log to stdout/stderr, otherwise - to a file:
@@ -371,7 +372,7 @@ def logs(pid_dir=PID_DIR, log_dir=LOG_DIR, paths=False, clear=False):
 
     # Check directories:
     if not os.path.exists(log_dir):
-        logger.error(f"No such directory: '{log_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
+        logger.error(f"No such directory: '{log_dir}'. Try running '{CMD_INIT}' first")
         return -8
 
     if clear:
@@ -428,7 +429,7 @@ def runs(pid_dir=PID_DIR, show_all=False):
 
     # Check directories:
     if not os.path.exists(pid_dir):
-        logger.error(f"No such directory: '{pid_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
+        logger.error(f"No such directory: '{pid_dir}'. Try running '{CMD_INIT}' first")
         return -8
 
     # Create Table printer:
@@ -477,52 +478,7 @@ def runs(pid_dir=PID_DIR, show_all=False):
     table.print_special('outer')
 
 
-def init(pid_dir=PID_DIR, log_dir=LOG_DIR, logger=None):
-    if logger is None:
-        logger = AvaLogger.get_logger(__NAME__)
 
-    # Get username and user main group:
-    import getpass, grp, pwd
-    username = getpass.getuser()
-    try:
-        user_info = pwd.getpwnam(username)
-        primary_gid = user_info.pw_gid
-        group_name = grp.getgrgid(primary_gid).gr_name
-    except KeyError:
-        logger.error(f"User '{username}' not found!")
-        return -1
-
-    # Ask user:
-    question = f"Create and configure {pid_dir} as PID directory and {log_dir} as LOG directory? (yes/no): "
-    if not ask_user_yes_no(question, logger=logger):
-        return -5
-
-    # Commands:
-    cmd1 = f'echo "d {pid_dir} 0755 {username} {group_name}" | sudo tee /usr/lib/tmpfiles.d/ava.conf'
-    cmd2 = f'sudo mkdir -p {pid_dir} {log_dir}'
-    cmd3 = f'sudo chown {username}:{group_name} {pid_dir} {log_dir}'
-
-    # Execute:
-    try:
-        for cmd in [cmd1, cmd2, cmd3]:
-            process = subprocess.Popen(cmd, text=True, shell=True, executable="/bin/bash",
-                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            _, stderr = process.communicate()
-            if process.returncode != 0:
-                logger.error(f"Command failed: '{cmd}'")
-                logger.error(stderr)
-                return -4
-
-        if process.returncode == 0:
-            logger.info(f"Directories '{pid_dir}' and '{log_dir}' successfully created for '{username}:{group_name}'")
-        else:
-            logger.info(f"Failed to create directories '{pid_dir}' and '{log_dir}' for '{username}:{group_name}'")
-
-    except Exception as e:
-        logger.error(e)
-        return -2
-
-    return 0
 
 
 def main():
@@ -534,7 +490,7 @@ def main():
     parser_run = subparsers.add_parser(CMD_RUN, help='Create and run a single instance process')
     parser_run.add_argument( 'name', type=str, default=None,
                              help='Process name to run')
-    parser_run.add_argument('-c', '--cmds', nargs='+', default='true',
+    parser_run.add_argument('-c', '--cmds', nargs='+', default=None,
                             help='List of command strings')
     parser_run.add_argument('-f', '--force', action='store_true', default=False,
                             help='Kill the running process and restart it')
@@ -599,13 +555,6 @@ def main():
     parser_logs.add_argument('-p', '--paths', action='store_true', default=False,
                              help='Print log file paths instead of log names')
 
-    # Create a subparser for the 'INIT' command:
-    parser_init = subparsers.add_parser(CMD_INIT, help='Initialize and create directories for PID and LOG files')
-    parser_init.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
-                             help='PIDLockFile directory')
-    parser_init.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
-                            help='Logs directory')
-
 
     args = parser.parse_args()
 
@@ -647,11 +596,6 @@ def main():
             log_dir=args.ldir,
             paths=args.paths,
             clear=args.clear
-        )
-    elif args.command == CMD_INIT:
-        init(
-            pid_dir=args.pdir,
-            log_dir=args.ldir
         )
     else:
         parser.print_help()
