@@ -43,6 +43,7 @@ Create and run a single instance process:
 - `-pd PDIR, --pdir PDIR`      PIDLockFile directory (`/var/run/ava/` by default)
 - `-ld LDIR, --ldir LDIR`      Logs directory (`/var/log/ava/` by default)
 - `-p PARENT, --parent PARENT` The parent process ID.
+- `-sh SHELL, --shell SHELL`   If true, the command will be executed through the shell.
 
 #### kill
 Kill a single instance process by its name:

@@ -78,7 +78,7 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
 
 
 def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=False,
-                             pid_dir=PID_DIR, log_dir=LOG_DIR, parent=None, logger=None):
+                             pid_dir=PID_DIR, log_dir=LOG_DIR, parent=None, logger=None, shell=False):
     if cmds is None:
         cmds = ['true']            # dummy command for NONE
 
@@ -113,6 +113,8 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
     if daemon:
         cmd_list = '" "'.join(cmd for cmd in cmds)
         cmd = f'{__NAME__} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmds "{cmd_list}"'
+        if shell:
+            cmd += ' --shell'
 
         try:
             with pidlockfile.PIDLockFile(_lockfile, timeout=0.1):
@@ -161,8 +163,9 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
                 try:
-                    process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                               stdin=subprocess.PIPE, bufsize=1, text=True)
+                    cmd = cmd if shell else shlex.split(cmd)
+                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                               stdin=subprocess.PIPE, bufsize=1, text=True, shell=shell)
                     _print_proc_output(process, logger)
                     returncode = process.returncode
                     if parent is not None:
@@ -543,6 +546,8 @@ def main():
                             help='Logs directory')
     parser_run.add_argument('-p', '--parent', type=int, default=None,
                             help='The parent process ID.')
+    parser_run.add_argument('-sh', '--shell', action='store_true', default=False,
+                            help='If true, the command will be executed through the shell')
 
     # Create a subparser for the 'KILL' command:
     parser_kill = subparsers.add_parser(CMD_KILL, help='Kill a single instance process by its name')
@@ -612,7 +617,8 @@ def main():
             daemon=args.daemon,
             pid_dir=args.pdir,
             log_dir=args.ldir,
-            parent=args.parent
+            parent=args.parent,
+            shell=args.shell
         )
     elif args.command == CMD_KILL:
         if args.no_killer_proc:
