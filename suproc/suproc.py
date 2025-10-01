@@ -614,7 +614,7 @@ def main():
                              help='Print log file paths instead of log names')
 
     # Create a subparser for the 'INIT' command:
-    parser_init = subparsers.add_parser(CMD_INIT, help='Initialize and create directories for PID files and LOG files')
+    parser_init = subparsers.add_parser(CMD_INIT, help='Initialize and create directories for PID and LOG files')
     parser_init.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                              help='PIDLockFile directory')
     parser_init.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
