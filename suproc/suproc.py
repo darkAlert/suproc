@@ -543,7 +543,8 @@ def init(pid_dir=PID_DIR, log_dir=LOG_DIR):
 
 
 def main():
-    parser = argparse.ArgumentParser('ava-proc')
+    parser = argparse.ArgumentParser('ava-proc',
+                                     description='This package allows to create and manage Single Unique Processes')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
     # Create a subparser for the 'RUN' command:
