@@ -78,7 +78,7 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
 
 
 def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=False,
-                             pid_dir=PID_DIR, log_dir=LOG_DIR, parent=None):
+                             pid_dir=PID_DIR, log_dir=LOG_DIR, parent=None, logger=None):
     if cmds is None:
         cmds = ['true']            # dummy command for NONE
 
@@ -89,15 +89,17 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
     except PermissionError:
-        logger = AvaLogger.get_logger(__NAME__)
+        if logger is None:
+            logger = AvaLogger.get_logger(__NAME__)
         logger.error(f"Permission denied: '{pid_dir}' or '{log_dir}'. Try running '{__NAME__} {CMD_INIT}' first")
         return -8
 
     # If the process is not a daemon, then write the log to stdout/stderr, otherwise - to a file:
-    if parent is None:
-        logger = AvaLogger.get_logger(__NAME__)
-    else:
-        logger = AvaLogger.get_logger(f'{__NAME__}.{name}', os.path.join(log_dir, name + '.log'))
+    if logger is None:
+        if parent is None:
+            logger = AvaLogger.get_logger(__NAME__)
+        else:
+            logger = AvaLogger.get_logger(f'{__NAME__}.{name}', os.path.join(log_dir, name + '.log'))
 
     # Path to PIDLockFile:
     _lockfile = str(os.path.join(pid_dir, LOCK_PROC + '.pid'))
