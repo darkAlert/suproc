@@ -11,6 +11,7 @@ import signal
 import time
 from suproc.utils.logger import AvaLogger
 from suproc.utils.printer import TablePrinter
+from suproc.utils.utils import ask_user_yes_no
 
 
 __NAME__ = 'suproc'
@@ -44,30 +45,6 @@ def _print_proc_output(process, logger):
     if process.returncode != 0:
         for line in process.stderr.readlines():
             logger.error(f"{line.strip()}")
-
-
-def ask_user_yes_no(question: str, logger=None):
-    try:
-        while True:
-            user_input = input(question).strip().lower()
-            if user_input == "yes" or user_input == "y":
-                return True
-            elif user_input == "no" or user_input == "n":
-                return False
-            else:
-                if logger:
-                    logger.debug("Invalid input. Please enter 'yes' or 'no'.")
-                else:
-                    print(logger)
-    except KeyboardInterrupt:
-        return False
-    except Exception as e:
-        if logger:
-            logger.error(e)
-        else:
-            print(e)
-
-    return False
 
 
 def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
@@ -543,7 +520,7 @@ def init(pid_dir=PID_DIR, log_dir=LOG_DIR):
 
 
 def main():
-    parser = argparse.ArgumentParser('ava-proc',
+    parser = argparse.ArgumentParser('ava-suproc',
                                      description='This package allows to create and manage Single Unique Processes')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
