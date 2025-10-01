@@ -515,7 +515,7 @@ def init(pid_dir=PID_DIR, log_dir=LOG_DIR):
         return -5
 
     # Commands:
-    cmd1 = f'echo "d {pid_dir} 0755 {username} {group_name}" | sudo tee /usr/lib/tmpfiles.d/ava-test.conf'
+    cmd1 = f'echo "d {pid_dir} 0755 {username} {group_name}" | sudo tee /usr/lib/tmpfiles.d/ava.conf'
     cmd2 = f'sudo mkdir -p {pid_dir} {log_dir}'
     cmd3 = f'sudo chown {username}:{group_name} {pid_dir} {log_dir}'
 
