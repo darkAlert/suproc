@@ -357,7 +357,7 @@ def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, rem
                     if not line:
                         time.sleep(0.1)  # wait a bit if no new lines
                         continue
-                    logger.debug(line, end='')
+                    logger.debug(line if not line.endswith('\n') else line[:-1])
 
     except FileNotFoundError:
         logger.error(f"File not found: '{path}'")
