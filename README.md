@@ -21,6 +21,10 @@ Update pip if the package is installed with the name UNKNOWN:
 ```
 python3 -m pip install --upgrade pip
 ```
+If the package is not found in the terminal after installation, try running:
+```
+source ~/.profile
+```
 
 ### Uninstalling
 ```
@@ -78,7 +82,7 @@ Managing the PID, LOGS, and CONFIG directories of 'suproc' package:
 - `-ld LDIR, --ldir LDIR`       Logs directory
 - `-cf CONF, --conf CONF`       Config file path 
 - `-y YES, --yes YES`           Answer 'yes' to each question of the initializer
-- `-de DEINIT, --deinit DEINIT` Deinitialize package and remove all its files
+- `-de DEINIT, --deinit DEINIT` Deinitialize the package and remove all its files
 
 
 ### Terminal examples

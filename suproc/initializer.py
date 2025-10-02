@@ -95,7 +95,7 @@ def deinitialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=Fals
 
 def main():
     parser = argparse.ArgumentParser('ava-suproc-initializer',
-                        description=f"Managing the PID, LOGS, and CONFIG directories of 'suproc' package")
+                        description=f"Managing the PID, LOGS, and CONFIG directories of '{PACKAGE_NAME}' package")
     parser.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                         help='PIDLockFile directory')
     parser.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
