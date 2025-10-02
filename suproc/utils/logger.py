@@ -13,7 +13,7 @@ class AvaLogger:
     def get_logger(cls, name, path=None, formatter=None):
         if name not in cls._loggers:
             if formatter is None:
-                formatter = None #cls.Formatter
+                formatter = cls.AvaFormatter()
             AvaLogger._loggers[name] = (cls._create_logger(name, path=path, formatter=formatter), path)
 
         logger, _path = AvaLogger._loggers[name]
@@ -40,7 +40,7 @@ class AvaLogger:
         return logger
 
 
-    class Formatter(logging.Formatter):
+    class AvaFormatter(logging.Formatter):
         """
         A custom formatter that uses different format strings for different log levels.
         """
@@ -51,21 +51,32 @@ class AvaLogger:
             logging.ERROR: "[%(name)s:%(levelname)s] %(message)s",
             logging.CRITICAL: "%(asctime)s - CRITICAL - !!! %(message)s !!!",
         }
+        #Colors (requires ANSI escape codes):
+        COLORS = {
+            logging.DEBUG: '\x1b[38;21m',       # Grey
+            logging.INFO: '\x1b[38;5;39m',      # Blue
+            logging.WARNING: '\x1b[38;5;226m',  # Yellow
+            logging.ERROR: '\x1b[38;5;196m',    # Red
+            logging.CRITICAL: '\x1b[31;1m',     # Bold Red
+            'RESET': '\x1b[0m'
+        }
 
         def format(self, record):
             """
             Overrides the default format method to apply level-specific formatting.
             """
-            # Store the original format
-            original_format = self._fmt
-
             # Select the format based on the log record's level
-            self._fmt = self.FORMATS.get(record.levelno, self._fmt)
+            fmt = self.FORMATS.get(record.levelno, self._fmt)
 
-            # Format the record
-            formatted_message = super().format(record)
+            # Create a new Formatter with the specific format string:
+            formatter = logging.Formatter(fmt)
 
-            # Restore the original format for subsequent records (important for shared formatters)
-            self._fmt = original_format
+            # Apply:
+            formatted_message = formatter.format(record)
+
+            # Apply color:
+            color_code = self.COLORS.get(record.levelno)
+            if color_code:
+                formatted_message = f"{color_code}{formatted_message}{self.COLORS['RESET']}"
 
             return formatted_message

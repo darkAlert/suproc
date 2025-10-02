@@ -13,14 +13,13 @@ from suproc.utils.logger import AvaLogger
 from suproc.utils.printer import TablePrinter
 from suproc.utils.utils import ask_user_yes_no
 
-
-__NAME__ = 'suproc'
+PKJ_NAME = 'suproc'
 CMD_RUN  = 'run'
 CMD_KILL = 'kill'
 CMD_LOG  = 'log'
 CMD_RUNS  = 'runs'
 CMD_LOGS  = 'logs'
-CMD_INIT = f'{__NAME__}-init'
+CMD_INIT = f'{PKJ_NAME}-init'
 PID_HEADER = '=== PID:'
 LOCK_PROC = '__lock'
 KILLER_PROC = '__killer'
@@ -91,16 +90,16 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
             os.makedirs(log_dir)
     except PermissionError:
         if logger is None:
-            logger = AvaLogger.get_logger(__NAME__)
+            logger = AvaLogger.get_logger(PKJ_NAME)
         logger.error(f"Permission denied: '{pid_dir}' or '{log_dir}'. Try running '{CMD_INIT}' first")
         return -8
 
     # If the process is not a daemon, then write the log to stdout/stderr, otherwise - to a file:
     if logger is None:
         if parent is None:
-            logger = AvaLogger.get_logger(__NAME__)
+            logger = AvaLogger.get_logger(PKJ_NAME)
         else:
-            logger = AvaLogger.get_logger(f'{__NAME__}.{name}', os.path.join(log_dir, name + '.log'))
+            logger = AvaLogger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
 
     # Path to PIDLockFile:
     _lockfile = str(os.path.join(pid_dir, LOCK_PROC + '.pid'))
@@ -113,7 +112,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
     # Create a daemon:
     if daemon:
         cmd_list = '" "'.join(cmd for cmd in cmds)
-        cmd = f'{__NAME__} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmds "{cmd_list}"'
+        cmd = f'{PKJ_NAME} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmds "{cmd_list}"'
         if shell:
             cmd += ' --shell'
 
@@ -195,7 +194,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
 
 def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
               killer_proc: None | str=KILLER_PROC, purge=False):
-    logger = AvaLogger.get_logger(__NAME__)
+    logger = AvaLogger.get_logger(PKJ_NAME)
 
     pidfile = str(os.path.join(pid_dir, name + '.pid'))
 
@@ -205,7 +204,7 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
             logger.error(f"Unable to kill the killer process: '{killer_proc}'!")
             return -1
 
-        cmd = f'{__NAME__} {CMD_KILL} {name} -pd={pid_dir} -ld={log_dir} --no-killer-proc'
+        cmd = f'{PKJ_NAME} {CMD_KILL} {name} -pd={pid_dir} -ld={log_dir} --no-killer-proc'
         if force:
             cmd += ' --force'
         if purge:
@@ -276,7 +275,7 @@ def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, rem
                       will be cleared. Otherwise, the log will be cleared up to the session number.
 
     """
-    logger = AvaLogger.get_logger(__NAME__)
+    logger = AvaLogger.get_logger(PKJ_NAME)
 
     # Log file path:
     path = os.path.join(log_dir, name + '.log')
@@ -368,7 +367,7 @@ def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, rem
 
 
 def logs(pid_dir=PID_DIR, log_dir=LOG_DIR, paths=False, clear=False):
-    logger = AvaLogger.get_logger(__NAME__)
+    logger = AvaLogger.get_logger(PKJ_NAME)
 
     # Check directories:
     if not os.path.exists(log_dir):
@@ -425,7 +424,7 @@ def logs(pid_dir=PID_DIR, log_dir=LOG_DIR, paths=False, clear=False):
 
 
 def runs(pid_dir=PID_DIR, show_all=False):
-    logger = AvaLogger.get_logger(__NAME__)
+    logger = AvaLogger.get_logger(PKJ_NAME)
 
     # Check directories:
     if not os.path.exists(pid_dir):

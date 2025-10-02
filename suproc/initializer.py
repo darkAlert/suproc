@@ -7,14 +7,14 @@ import subprocess
 
 from suproc.utils.logger import AvaLogger
 from suproc.utils.utils import ask_user_yes_no
-from suproc.suproc import PID_DIR, LOG_DIR, CONF_FILE, __NAME__ as PACKAGE_NAME
+from suproc.suproc import PID_DIR, LOG_DIR, CONF_FILE, PKJ_NAME
 
 __NAME__ = 'initializer'
 
 
 def initialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=False, logger=None):
     if logger is None:
-        logger = AvaLogger.get_logger(__NAME__)
+        logger = AvaLogger.get_logger(f"{PKJ_NAME}-{__NAME__}")
 
     # Get username and user main group:
     import getpass, grp, pwd
@@ -62,7 +62,7 @@ def initialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=False,
 
 def deinitialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=False, logger=None):
     if logger is None:
-        logger = AvaLogger.get_logger(__NAME__)
+        logger = AvaLogger.get_logger(f"{PKJ_NAME}-{__NAME__}")
 
     # 1. Ask user to remove directories and conf file:
     question = f"Remove '{conf_file}', '{pid_dir}' and '{log_dir}'? (yes/no): "
@@ -95,7 +95,7 @@ def deinitialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=Fals
 
 def main():
     parser = argparse.ArgumentParser('ava-suproc-initializer',
-                        description=f"Managing the PID, LOGS, and CONFIG directories of '{PACKAGE_NAME}' package")
+                        description=f"Managing the PID, LOGS, and CONFIG directories of '{PKJ_NAME}' package")
     parser.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                         help='PIDLockFile directory')
     parser.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
