@@ -95,7 +95,7 @@ def deinitialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=Fals
 
 def main():
     parser = argparse.ArgumentParser('ava-suproc-initializer',
-                        description=f"Initialize or deinitialize '{PACKAGE_NAME}' package")
+                        description=f"Managing the PID, LOGS, and CONFIG directories of 'suproc' package")
     parser.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                         help='PIDLockFile directory')
     parser.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
@@ -103,7 +103,7 @@ def main():
     parser.add_argument('-cf', '--conf', type=str, default=CONF_FILE,
                         help='Config file path')
     parser.add_argument('-y', '--yes', action='store_true', default=False,
-                        help="Answer 'yes' to each question")
+                        help="Answer 'yes' to each question of the initializer")
     parser.add_argument('-de', '--deinit', action='store_true', default=False,
                         help="Deinitialize package and remove all its files")
 

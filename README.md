@@ -12,7 +12,9 @@ bash install.sh
 ### Installation via pip
 ```
 pip3 install git+https://github.com/darkAlert/suproc.git#egg=suproc
+suproc-init
 ```
+Before using the package, you have to run `suproc-init` to initialize it and create directories for the PID and LOG files.
 
 #### Troubleshooting
 Update pip if the package is installed with the name UNKNOWN:
@@ -22,18 +24,12 @@ python3 -m pip install --upgrade pip
 
 ### Uninstalling
 ```
+suproc-init --deinit
 pip3 uninstall suproc -y
 ```
 
-### Initialization
-Before use, initialize and create directories for PID and LOG files:
-```
-suproc init
-```
-
-## Usage
-Available commands:
-
+## Available commands
+### suproc
 #### run
 Create and run a single instance process:
 - `name`                       Process name to run
@@ -76,13 +72,16 @@ Print a list of logs of processes:
 - `-pd PDIR, --pdir PDIR` PIDLockFile directory
 - `-ld LDIR, --ldir LDIR` Logs directory 
 
-#### init
-Initialize and create directories for PID and LOG files:
-- `-pd PDIR, --pdir PDIR` PIDLockFile directory
-- `-ld LDIR, --ldir LDIR` Logs directory 
+### suproc-init
+Managing the PID, LOGS, and CONFIG directories of 'suproc' package:
+- `-pd PDIR, --pdir PDIR`       PIDLockFile directory
+- `-ld LDIR, --ldir LDIR`       Logs directory
+- `-cf CONF, --conf CONF`       Config file path 
+- `-y YES, --yes YES`           Answer 'yes' to each question of the initializer
+- `-de DEINIT, --deinit DEINIT` Deinitialize package and remove all its files
 
 
-### Terminal
+### Terminal examples
 Create and start a process named `test` that will execute the bash command: `ls / -l`:
 ```
 suproc run test -c='ls / -l'
@@ -103,5 +102,5 @@ Kill process:
 suproc kill test
 ```
 
-### Python
+### Python examples
 TO DO...
