@@ -171,7 +171,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     if parent is not None:
                         logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
                 except KeyboardInterrupt:
-                    logger.error(f'KeyboardInterrupt')
+                    logger.warning(f'KeyboardInterrupt')
                     return -9
                 except Exception as e:
                     logger.error(f'{e}\n')
@@ -361,7 +361,7 @@ def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, rem
     except FileNotFoundError:
         logger.error(f"File not found: '{path}'")
     except KeyboardInterrupt:
-        logger.error('KeyboardInterrupt')
+        logger.warning('KeyboardInterrupt')
     except Exception as e:
         logger.error(e)
 
