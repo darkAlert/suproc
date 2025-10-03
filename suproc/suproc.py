@@ -12,6 +12,7 @@ import time
 from suproc.utils.logger import AvaLogger
 from suproc.utils.printer import TablePrinter
 from suproc.utils.utils import ask_user_yes_no
+from suproc import __version__
 
 PKJ_NAME = 'suproc'
 CMD_RUN  = 'run'
@@ -477,12 +478,11 @@ def runs(pid_dir=PID_DIR, show_all=False):
     table.print_special('outer')
 
 
-
-
-
 def main():
     parser = argparse.ArgumentParser('ava-suproc',
-                                     description='This package allows to create and manage Single Unique Processes')
+                            description='This package allows to create and manage Single Unique Processes')
+    parser.add_argument('-v', '--version', action='store_true', default=False,
+                            help=f"Show the package version")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
     # Create a subparser for the 'RUN' command:
@@ -554,10 +554,13 @@ def main():
     parser_logs.add_argument('-p', '--paths', action='store_true', default=False,
                              help='Print log file paths instead of log names')
 
-
     args = parser.parse_args()
 
-    if args.command == CMD_RUN:
+    # Run commands:
+    if args.version:
+        logger = AvaLogger.get_logger(PKJ_NAME)
+        logger.info(__version__)
+    elif args.command == CMD_RUN:
         run_single_instance_proc(
             name=args.name,
             cmds=args.cmds,
