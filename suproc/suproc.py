@@ -180,13 +180,13 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
                 try:
-                    with open(f'/home/darkalert/builds/ava/ava-video-recap/_videos/_test/{name}.out', 'w') as stdout_f:
+                    with open(f'/home/darkalert/{name}.out', 'w') as stdout_f:
                         cmd = cmd if shell else shlex.split(cmd)
                         my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}       # to flush python output buffer
                         process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, shell=shell,
                                                    stdout=stdout_f, stderr=stdout_f, stdin=stdin)     # subprocess.PIPE
                         try:
-                            with open(f'/home/darkalert/builds/ava/ava-video-recap/_videos/_test/{name}.out', 'r') as read_f:
+                            with open(f'/home/darkalert/{name}.out', 'r') as read_f:
                                 _print_proc_output(process, logger, read_f)
                         except Exception as e:
                             logger.error(f'EXEPTION!!! {e}')
