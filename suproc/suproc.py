@@ -32,7 +32,10 @@ CONF_FILE ='/usr/lib/tmpfiles.d/ava.conf'
 def _print_proc_output(process, logger):
     # Print stdout / stderr:
     while True:
-        output = process.stdout.readline()
+        try:
+            output = process.stdout.readline()
+        except KeyboardInterrupt:
+            logger.info(KeyboardInterrupt)
         if output == '' and process.poll() is not None:
             break
         if output:
@@ -159,9 +162,11 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
     try:
         with pidlockfile.PIDLockFile(pidfile, timeout=0.1):
             returncode = None
+            stdin = subprocess.DEVNULL
 
             # If the parent process is None, then the current process is not detached (not a daemon):
             if parent is None:
+                stdin = subprocess.PIPE
                 with open(pidfile, "r+") as pf:
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
@@ -176,7 +181,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     cmd = cmd if shell else shlex.split(cmd)
                     my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}       # to flush python output buffer
                     process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, shell=shell,
-                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=stdin)
                     _print_proc_output(process, logger)
                     returncode = process.returncode
                     if parent is not None:
