@@ -36,6 +36,7 @@ def _print_proc_output(process, logger):
             output = process.stdout.readline()
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
+            break
         if output == '' and process.poll() is not None:
             break
         if output:
