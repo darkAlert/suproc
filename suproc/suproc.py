@@ -48,6 +48,13 @@ def _print_proc_output(process, logger):
             logger.error(f"{line.strip()}")
 
 
+def _clear_global_lockfile(lockfile, returncode=0):
+    with open(lockfile, "r+") as lf:
+        lf.write("0\n")
+        lf.flush()
+    return returncode
+
+
 def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
     """
     Reads the PID from a given PID lock file.
@@ -118,26 +125,28 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
             cmd += ' --shell'
 
         try:
-            with pidlockfile.PIDLockFile(_lockfile, timeout=0.1):
+            with pidlockfile.PIDLockFile(_lockfile, timeout=0.1):       # global lock
+
                 # Check the PIDLockFile of the created process:
                 if os.path.exists(pidfile) and pidlockfile.PIDLockFile(pidfile).is_locked():
                     logger.error(f"Could not acquire lock on {pidfile}. Another instance might be running!")
-                    return -1
+                    return _clear_global_lockfile(_lockfile, -1)
 
                 # Run detached process:
-                process = subprocess.Popen(shlex.split(cmd), start_new_session=True, stdout=subprocess.DEVNULL,
-                                           stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+                process = subprocess.Popen(shlex.split(cmd), start_new_session=True,
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                           stdin=subprocess.DEVNULL)
 
                 # Check that the process started successfully and created a lock file:
                 for i in range(20):
                     pid = read_pid_from_pidfile(pidfile)
                     if pid is not None and abs(pid) == process.pid:
                         logger.info(f'Daemon with PID:{process.pid} successfully created!')
-                        return process.pid
+                        return _clear_global_lockfile(_lockfile, process.pid)
                     time.sleep(0.05)
 
                 logger.error(f'Cannot create a daemon with pidfile={pidfile}!')
-                return -2
+                return _clear_global_lockfile(_lockfile, -2)
 
         except pidlockfile.LockTimeout:
             logger.error(f"Could not acquire lock on {_lockfile}")
@@ -146,7 +155,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
             logger.error(e)
             return -4
 
-    # Run command:
+    # Run a sequence of commands:
     try:
         with pidlockfile.PIDLockFile(pidfile, timeout=0.1):
             returncode = None
@@ -159,18 +168,20 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
             else:
                 logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)} ===')
 
-            # Run attached process:
+            # Run the attached process and execute a sequence of commands:
             for i, cmd in enumerate(cmds):
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
                 try:
                     cmd = cmd if shell else shlex.split(cmd)
-                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                               stdin=subprocess.PIPE, bufsize=1, text=True, shell=shell)
+                    my_env = os.environ.copy() | {'PYTHONUNBUFFERED': 1}       # to flush python output buffer
+                    process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, shell=shell,
+                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
                     _print_proc_output(process, logger)
                     returncode = process.returncode
                     if parent is not None:
                         logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
+
                 except KeyboardInterrupt:
                     logger.warning(f'KeyboardInterrupt')
                     return -9
@@ -182,7 +193,6 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     if i+1 < len(cmds):
                         logger.info(f'= Aborted! The last command completed with a non-zero returncode!')
                     break
-
         return returncode
 
     except pidlockfile.LockTimeout:
@@ -225,6 +235,7 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
                         logger.info(f'PID file deleted: {pidfile}')
                     except Exception as e:
                         logger.error(e)
+                _clear_global_lockfile(_lockfile)
 
         # Remove the LOG file of the killed process:
         log_file = os.path.join(log_dir, name + '.log')
@@ -237,6 +248,7 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
                     logger.info(f'LOG file deleted: {log_file}')
                 except Exception as e:
                     logger.error(e)
+                _clear_global_lockfile(_lockfile)
     else:
         # Kill process via os.kill:
         pid = read_pid_from_pidfile(pidfile, logger=logger)
@@ -452,15 +464,17 @@ def runs(pid_dir=PID_DIR, show_all=False):
             locked = pidlockfile.PIDLockFile(pid_path).is_locked() is not None
 
             # Check if process alive:
-            running = True
-            try:
-                os.kill(abs(pid), 0)
-            except ProcessLookupError:
-                running = False
+            running = False
+            if pid != 0:
+                try:
+                    os.kill(abs(pid), 0)
+                    running = True
+                except ProcessLookupError:
+                    pass
 
             if locked != running:
                 logger.warning(f"Process '{name}' (PID:{pid}) may be a zombie "
-                               f"becase it is locked={locked} but running={running}!")
+                               f"because it is locked={locked} but running={running}!")
 
             if not show_all and (not running or (name == KILLER_PROC or name == LOCK_PROC)):
                 continue
