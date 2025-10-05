@@ -174,7 +174,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
                 try:
                     cmd = cmd if shell else shlex.split(cmd)
-                    my_env = os.environ.copy() | {'PYTHONUNBUFFERED': 1}       # to flush python output buffer
+                    my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}       # to flush python output buffer
                     process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, shell=shell,
                                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
                     _print_proc_output(process, logger)
@@ -186,7 +186,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     logger.warning(f'KeyboardInterrupt')
                     return -9
                 except Exception as e:
-                    logger.error(f'{e}\n')
+                    logger.error(f'{e}')
                     return -4
 
                 if returncode != 0:
