@@ -33,22 +33,30 @@ def _print_proc_output(process, logger, read_f=None):
     # Print stdout / stderr:
     while True:
         try:
+            logger.info('readline 1')
             if read_f is not None:
                 output = read_f.readline()
             else:
                 output = process.stdout.readline()
+            logger.info('readline 2')
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
             break
+        logger.info('readline 3')
         if output == '' and process.poll() is not None:
+            logger.info('readline 4')
             break
+        logger.info('readline 5')
         if output:
             logger.debug(output.strip())  # Print and remove trailing newline
+        logger.info('readline 6')
 
+    logger.info('readline 7')
     # Handle any remaining output after the process finishes
     for line in process.stdout.readlines():
         logger.debug(line.strip())
 
+    logger.info('readline 8')
     # Check for errors
     if process.returncode != 0:
         for line in process.stderr.readlines():
