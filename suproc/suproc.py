@@ -15,11 +15,11 @@ from suproc.utils.utils import ask_user_yes_no
 from suproc import __version__
 
 PKJ_NAME = 'suproc'
-CMD_RUN  = 'run'
+CMD_RUN = 'run'
 CMD_KILL = 'kill'
-CMD_LOG  = 'log'
-CMD_RUNS  = 'runs'
-CMD_LOGS  = 'logs'
+CMD_LOG = 'log'
+CMD_RUNS = 'runs'
+CMD_LOGS = 'logs'
 CMD_INIT = f'{PKJ_NAME}-init'
 PID_HEADER = '=== PID:'
 LOCK_PROC = '__lock'
@@ -27,31 +27,40 @@ KILLER_PROC = '__killer'
 PID_DIR = '/var/run/ava/'
 LOG_DIR = '/var/log/ava/'
 CONF_FILE ='/usr/lib/tmpfiles.d/ava.conf'
+STDOUT = 'pipe'
+STDERR = 'pipe'
+STDOUT_VALUES = {
+    'pipe': subprocess.PIPE,
+    'devnull': subprocess.DEVNULL
+}
+STDERR_VALUES = {
+    'pipe': subprocess.PIPE,
+    'stdout': subprocess.STDOUT,       # for STDERR only!
+    'devnull': subprocess.DEVNULL
+}
 
 
-def _print_proc_output(process, logger, read_f=None):
+def _print_proc_output(process, logger, stdout, stderr):
     # Print stdout / stderr:
     while True:
         try:
-            if read_f is not None:
-                output = read_f.readline()
-            else:
-                output = process.stdout.readline()
+            output = stdout.readline()
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
             break
+
         if output == '' and process.poll() is not None:
             break
         if output:
             logger.debug(output.strip())  # Print and remove trailing newline
 
     # Handle any remaining output after the process finishes
-    for line in process.stdout.readlines():
+    for line in stdout.readlines():
         logger.debug(line.strip())
 
     # Check for errors
     if process.returncode != 0:
-        for line in process.stderr.readlines():
+        for line in stderr.readlines():
             logger.error(f"{line.strip()}")
 
 
@@ -92,8 +101,8 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
         return None
 
 
-def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=False,
-                             pid_dir=PID_DIR, log_dir=LOG_DIR, parent=None, logger=None, shell=False):
+def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False, parent=None, logger=None, shell=False,
+                             pid_dir=PID_DIR, log_dir=LOG_DIR, stdout=STDOUT, stderr=STDERR):
     if cmds is None:
         cmds = ['true']            # dummy command for NONE
 
@@ -128,6 +137,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
     if daemon:
         cmd_list = '" "'.join(cmd for cmd in cmds)
         cmd = f'{PKJ_NAME} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmds "{cmd_list}"'
+        cmd += f'--stdout={stdout} --stderr={stderr}'
         if shell:
             cmd += ' --shell'
 
@@ -162,6 +172,18 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
             logger.error(e)
             return -4
 
+    # Parse and check stdout and stderr arguments:
+    if stdout in STDOUT_VALUES:
+        stdout = STDOUT_VALUES.get(stdout)
+    else:
+        logger.warning(f"'--stdout' cannot be '{stdout}', 'subprocess.DEVNULL' will be used instead!")
+        stdout = subprocess.DEVNULL
+    if stderr in STDERR_VALUES:
+        stderr = STDERR_VALUES.get(stderr)
+    else:
+        logger.warning(f"'--stderr' cannot be '{stderr}', 'subprocess.DEVNULL' will be used instead!")
+        stderr = subprocess.DEVNULL
+
     # Run a sequence of commands:
     try:
         with pidlockfile.PIDLockFile(pidfile, timeout=0.1):
@@ -183,17 +205,17 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
                 try:
                     # Adjust environment variables:
-                    my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}
+                    my_env = os.environ.copy()
                     my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
-                    my_env['AWS_REQUEST_CHECKSUM_CALCULATION'] = 'when_required'   # for awscli
+                    # my_env['AWS_REQUEST_CHECKSUM_CALCULATION'] = 'when_required'   # for awscli
 
                     cmd = cmd if shell else shlex.split(cmd)
-                    process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, universal_newlines=True, shell=shell,
-                                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=stdin)     # subprocess.PIPE
+                    process = subprocess.Popen(cmd, env=my_env, bufsize=-1, text=True, shell=shell,
+                                               stdout=stdout, stderr=stderr, stdin=stdin)
                     try:
-                        _print_proc_output(process, logger)
+                        _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
                     except Exception as e:
-                        logger.error(f'EXEPTION!!! {e}')
+                        logger.error(f'{e}')
 
                     returncode = process.returncode
                     if parent is not None:
@@ -211,7 +233,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     #                                stdout=stdout_f, stderr=stdout_f, stdin=stdin)     # subprocess.PIPE
                     #     # try:
                     #     #     with open(log_path, 'r') as read_f:
-                    #     #         _print_proc_output(process, logger, read_f)
+                    #     #         _print_proc_output(process, logger, stdout=stdout_f, stderr=stdout_f)
                     #     # except Exception as e:
                     #     #     logger.error(f'EXEPTION!!! {e}')
                     #     returncode = process.wait()
@@ -230,6 +252,8 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                     if i+1 < len(cmds):
                         logger.info(f'= Aborted! The last command completed with a non-zero returncode!')
                     break
+            if parent is not None or len(cmds) > 1:
+                logger.info(f'= Execution completed.')
         return returncode
 
     except pidlockfile.LockTimeout:
@@ -241,7 +265,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
 
 
 def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
-              killer_proc: None | str=KILLER_PROC, purge=False):
+              killer_proc: None | str = KILLER_PROC, purge=False):
     logger = AvaLogger.get_logger(PKJ_NAME)
 
     pidfile = str(os.path.join(pid_dir, name + '.pid'))
@@ -554,6 +578,10 @@ def main():
                             help='The parent process ID.')
     parser_run.add_argument('-sh', '--shell', action='store_true', default=False,
                             help='If true, the command will be executed through the shell')
+    parser_run.add_argument('-o', '--stdout', type=str, default='pipe',
+                            help=f'Can be {list(STDOUT_VALUES.keys())}')
+    parser_run.add_argument('-e', '--stderr', type=str, default='pipe',
+                            help=f'Can be {list(STDERR_VALUES.keys())}')
 
     # Create a subparser for the 'KILL' command:
     parser_kill = subparsers.add_parser(CMD_KILL, help='Kill a single instance process by its name')
@@ -620,7 +648,9 @@ def main():
             pid_dir=args.pdir,
             log_dir=args.ldir,
             parent=args.parent,
-            shell=args.shell
+            shell=args.shell,
+            stdout=args.stdout,
+            stderr=args.stderr
         )
     elif args.command == CMD_KILL:
         if args.no_killer_proc:
