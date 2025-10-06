@@ -29,7 +29,7 @@ source ~/.profile
 ### Uninstalling
 ```
 suproc-init --deinit
-pip3 uninstall suproc -y
+pip3 uninstall suproc -y  --break-system-packages
 ```
 
 ## Available commands

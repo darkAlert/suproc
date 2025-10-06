@@ -29,12 +29,14 @@ LOG_DIR = '/var/log/ava/'
 CONF_FILE ='/usr/lib/tmpfiles.d/ava.conf'
 
 
-def _print_proc_output(process, logger, read_f):
+def _print_proc_output(process, logger, read_f=None):
     # Print stdout / stderr:
     while True:
         try:
-            output = read_f.readline()
-            #output = process.stdout.readline()
+            if read_f is not None:
+                output = read_f.readline()
+            else:
+                output = process.stdout.readline()
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
             break
@@ -180,21 +182,42 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
                 try:
-                    log_path = os.path.join(log_dir, name + '.log')
-                    with open(log_path, 'a') as stdout_f:
-                        cmd = cmd if shell else shlex.split(cmd)
-                        my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}       # to flush python output buffer
-                        process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, universal_newlines=True, shell=shell,
-                                                   stdout=stdout_f, stderr=stdout_f, stdin=stdin)     # subprocess.PIPE
-                        # try:
-                        #     with open(log_path, 'r') as read_f:
-                        #         _print_proc_output(process, logger, read_f)
-                        # except Exception as e:
-                        #     logger.error(f'EXEPTION!!! {e}')
-                        returncode = process.wait()
-                        #returncode = process.returncode
-                        if parent is not None:
-                            logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
+                    # Adjust environment variables:
+                    my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}
+                    my_env['PYTHONUNBUFFERED'] = '1'                              # to flush python output buffer
+                    my_env['AWS_REQUEST_CHECKSUM_CALCULATION']= 'when_required'   # for awscli
+
+                    cmd = cmd if shell else shlex.split(cmd)
+                    process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, universal_newlines=True, shell=shell,
+                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=stdin)     # subprocess.PIPE
+                    try:
+                        _print_proc_output(process, logger)
+                    except Exception as e:
+                        logger.error(f'EXEPTION!!! {e}')
+
+                    returncode = process.returncode
+                    if parent is not None:
+                        logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
+
+                    # log_path = os.path.join(log_dir, name + '.log')
+                    # with open(log_path, 'a') as stdout_f:
+                    #     # Adjust environment variables:
+                    #     my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}
+                    #     my_env['PYTHONUNBUFFERED'] = '1'                              # to flush python output buffer
+                    #     my_env['AWS_REQUEST_CHECKSUM_CALCULATION']= 'when_required'   # for awscli
+                    #
+                    #     cmd = cmd if shell else shlex.split(cmd)
+                    #     process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, universal_newlines=True, shell=shell,
+                    #                                stdout=stdout_f, stderr=stdout_f, stdin=stdin)     # subprocess.PIPE
+                    #     # try:
+                    #     #     with open(log_path, 'r') as read_f:
+                    #     #         _print_proc_output(process, logger, read_f)
+                    #     # except Exception as e:
+                    #     #     logger.error(f'EXEPTION!!! {e}')
+                    #     returncode = process.wait()
+                    #     #returncode = process.returncode
+                    #     if parent is not None:
+                    #         logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
 
                 except KeyboardInterrupt:
                     logger.warning(f'KeyboardInterrupt')
