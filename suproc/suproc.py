@@ -35,20 +35,23 @@ def _print_proc_output(process, logger, read_f=None):
         try:
             logger.info('readline 1')
             if read_f is not None:
-                output = read_f.readline()
+                stdout = read_f.readline()
             else:
-                output = process.stdout.readline()
+                stdout = process.stdout.readline()
+                stderr = process.stdout.readline()
             logger.info('readline 2')
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
             break
         logger.info('readline 3')
-        if output == '' and process.poll() is not None:
+        if stdout == '' and process.poll() is not None:
             logger.info('readline 4')
             break
         logger.info('readline 5')
-        if output:
-            logger.debug(output.strip())  # Print and remove trailing newline
+        if stdout:
+            logger.debug(stdout.strip())  # Print and remove trailing newline
+        if stderr:
+            logger.debug(stderr.strip())
         logger.info('readline 6')
 
     logger.info('readline 7')
