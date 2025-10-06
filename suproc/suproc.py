@@ -38,20 +38,14 @@ def _print_proc_output(process, logger, read_f=None):
                 output = read_f.readline()
             else:
                 output = process.stdout.readline()
-            logger.info('readline 2')
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
             break
-        logger.info('readline 3')
         if output == '' and process.poll() is not None:
-            logger.info('readline 4')
             break
-        logger.info('readline 5')
         if output:
             logger.debug(output.strip())  # Print and remove trailing newline
-        logger.info('readline 6')
 
-    logger.info('readline 7')
     # Handle any remaining output after the process finishes
     for line in process.stdout.readlines():
         logger.debug(line.strip())
@@ -192,8 +186,8 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
                 try:
                     # Adjust environment variables:
                     my_env = os.environ.copy() | {'PYTHONUNBUFFERED': '1'}
-                    my_env['PYTHONUNBUFFERED'] = '1'                              # to flush python output buffer
-                    my_env['AWS_REQUEST_CHECKSUM_CALCULATION']= 'when_required'   # for awscli
+                    my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
+                    my_env['AWS_REQUEST_CHECKSUM_CALCULATION'] = 'when_required'   # for awscli
 
                     cmd = cmd if shell else shlex.split(cmd)
                     process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, universal_newlines=True, shell=shell,
