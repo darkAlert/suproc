@@ -35,23 +35,20 @@ def _print_proc_output(process, logger, read_f=None):
         try:
             logger.info('readline 1')
             if read_f is not None:
-                stdout = read_f.readline()
+                output = read_f.readline()
             else:
-                stdout = process.stdout.readline()
-                stderr = process.stdout.readline()
+                output = process.stdout.readline()
             logger.info('readline 2')
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
             break
         logger.info('readline 3')
-        if stdout == '' and process.poll() is not None:
+        if output == '' and process.poll() is not None:
             logger.info('readline 4')
             break
         logger.info('readline 5')
-        if stdout:
-            logger.debug(stdout.strip())  # Print and remove trailing newline
-        if stderr:
-            logger.debug(stderr.strip())
+        if output:
+            logger.debug(output.strip())  # Print and remove trailing newline
         logger.info('readline 6')
 
     logger.info('readline 7')
@@ -200,7 +197,7 @@ def run_single_instance_proc(name, cmds: list or None=None, force=False, daemon=
 
                     cmd = cmd if shell else shlex.split(cmd)
                     process = subprocess.Popen(cmd, env=my_env, bufsize=1, text=True, universal_newlines=True, shell=shell,
-                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=stdin)     # subprocess.PIPE
+                                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=stdin)     # subprocess.PIPE
                     try:
                         _print_proc_output(process, logger)
                     except Exception as e:
