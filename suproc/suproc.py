@@ -33,7 +33,6 @@ def _print_proc_output(process, logger, read_f=None):
     # Print stdout / stderr:
     while True:
         try:
-            logger.info('readline 1')
             if read_f is not None:
                 output = read_f.readline()
             else:
@@ -50,7 +49,6 @@ def _print_proc_output(process, logger, read_f=None):
     for line in process.stdout.readlines():
         logger.debug(line.strip())
 
-    logger.info('readline 8')
     # Check for errors
     if process.returncode != 0:
         for line in process.stderr.readlines():
