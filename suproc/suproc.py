@@ -381,7 +381,7 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
             os.kill(abs(pid), 0)        # check if process alive
             cur_pid = os.getpid()
             if not force and (cur_pid == pid or pid < 0):
-                logger.error(f"'Process {name}:{abs(pid)}' cannot be killed because it is attached to parent:{cur_pid}!"
+                logger.error(f"Process '{name}:{abs(pid)}' cannot be killed because it is attached to parent:{cur_pid}!"
                              f" Use '--force' to force it to kill")
                 return -3
             os.kill(abs(pid), signal.SIGTERM)
