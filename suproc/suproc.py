@@ -90,6 +90,9 @@ def _detach_process():
 
     import sys
     try:
+        # Set the process as the leader of that session (set as a daemon):
+        os.setsid()
+
         process = subprocess.Popen(shlex.split(cmd), start_new_session=False,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
 
@@ -185,8 +188,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
 
                 # Run detached process:
                 cmd = f"suproc-detach --cmd='{cmd}' --pidfile={pidfile}"
-                process = subprocess.Popen(shlex.split(cmd), start_new_session=True, text=True,
-                                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                process = subprocess.Popen(shlex.split(cmd), start_new_session=False, text=True,
+                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                            stdin=subprocess.DEVNULL)
                 stdout, stderr = process.communicate()
                 if process.returncode == 0:
@@ -249,8 +252,6 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
             else:
-                # Otherwise, set the process as a daemon:
-                os.setsid()
                 t = datetime.now().isoformat(timespec='seconds')
                 logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)}, time:{t} ===')
 
@@ -380,13 +381,14 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
             os.kill(abs(pid), 0)        # check if process alive
             cur_pid = os.getpid()
             if not force and (cur_pid == pid or pid < 0):
-                logger.error(f"Unable to kill the current process:{cur_pid}! Use --force to force kill")
+                logger.error(f"'Process {name}:{abs(pid)}' cannot be killed because it is attached to parent:{cur_pid}!"
+                             f" Use '--force' to force it to kill")
                 return -3
             os.kill(abs(pid), signal.SIGTERM)
-            logger.info(f"Process killed: PID:{pid}")
+            logger.info(f"Process killed: '{name}:{abs(pid)}'")
         except ProcessLookupError:
             if not purge:
-                logger.error(f'No alive process with PID:{pid}! Use --purge to delete its PID file')
+                logger.error(f"No alive process: '{name}:{abs(pid)}'! Use --purge to delete its PID file")
                 return -4
 
     return 0
