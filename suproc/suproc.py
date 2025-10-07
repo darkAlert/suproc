@@ -42,6 +42,13 @@ STDERR_VALUES = {
 }
 
 
+def get_logger(name: str = None, log_dir=LOG_DIR) -> AvaLogger:
+    if name is None:
+        return AvaLogger.get_logger(PKJ_NAME)
+    else:
+        return AvaLogger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
+
+
 def _print_proc_output(process, logger, stdout, stderr):
     # Print stdout / stderr:
     while True:
@@ -71,6 +78,33 @@ def _clear_global_lockfile(lockfile, returncode=0):
         lf.write("0\n")
         lf.flush()
     return returncode
+
+
+def _detach_process():
+    parser = argparse.ArgumentParser('uproc-detach')
+    parser.add_argument('--cmd', type=str, required=True)
+    parser.add_argument('--pidfile', type=str, required=True)
+    args = parser.parse_args()
+    cmd = args.cmd
+    pidfile = args.pidfile
+
+    import sys
+    try:
+        process = subprocess.Popen(shlex.split(cmd), start_new_session=False,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+
+        # Check that the process started successfully:
+        for i in range(40):
+            pid = read_pid_from_pidfile(pidfile)
+            if pid is not None and abs(pid) == process.pid:
+                print(f"process started successfully with pid={pid}")
+                sys.exit(0)
+            time.sleep(0.025)
+    except Exception as e:
+        print(e)
+
+    print(f"failed to start process!")
+    sys.exit(-1)
 
 
 def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
@@ -103,33 +137,6 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
         return None
 
 
-def _detach_process():
-    parser = argparse.ArgumentParser('uproc-detach')
-    parser.add_argument('--cmd', type=str, required=True)
-    parser.add_argument('--pidfile', type=str, required=True)
-    args = parser.parse_args()
-    cmd = args.cmd
-    pidfile = args.pidfile
-
-    import sys
-    try:
-        process = subprocess.Popen(shlex.split(cmd), start_new_session=False,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
-
-        # Check that the process started successfully:
-        for i in range(40):
-            pid = read_pid_from_pidfile(pidfile)
-            if pid is not None and abs(pid) == process.pid:
-                print(f"process started successfully with pid={pid}")
-                sys.exit(0)
-            time.sleep(0.025)
-    except Exception as e:
-        print(e)
-
-    print(f"failed to start process!")
-    sys.exit(-1)
-
-
 def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False, parent=None, logger=None, shell=False,
                              pid_dir=PID_DIR, log_dir=LOG_DIR, stdout=STDOUT, stderr=STDERR):
     if cmds is None:
@@ -154,7 +161,7 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
         else:
             logger = AvaLogger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
 
-    # Path to PIDLockFile:
+    # Paths to pids:
     _lockfile = str(os.path.join(pid_dir, LOCK_PROC + '.pid'))
     pidfile = str(os.path.join(pid_dir, name + '.pid'))
 
@@ -242,8 +249,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
             else:
-                if parent != 0:
-                    os.setsid()  # set the process as a daemon
+                # Otherwise, set the process as a daemon:
+                os.setsid()
                 t = datetime.now().isoformat(timespec='seconds')
                 logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)}, time:{t} ===')
 
@@ -252,13 +259,13 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing #{i+1}: "{cmd}"')
                 try:
-                    # Adjust environment variables:
-                    my_env = os.environ.copy()
-                    my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
-                    # my_env['AWS_REQUEST_CHECKSUM_CALCULATION'] = 'when_required'   # for awscli
+                    # # Adjust environment variables:
+                    # my_env = os.environ.copy()
+                    # my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
+                    # env = my_env,
 
                     cmd = cmd if shell else shlex.split(cmd)
-                    process = subprocess.Popen(cmd, env=my_env, bufsize=-1, text=True, shell=shell,
+                    process = subprocess.Popen(cmd, bufsize=-1, text=True, shell=shell,
                                                stdout=stdout, stderr=stderr, stdin=stdin)
                     try:
                         _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
@@ -619,7 +626,7 @@ def main():
     parser_run.add_argument('-c', '--cmds', nargs='+', default=None,
                             help='List of command strings')
     parser_run.add_argument('-f', '--force', action='store_true', default=False,
-                            help='Kill the running process and restart it')
+                            help='Kill the process if it is running')
     parser_run.add_argument('-d', '--daemon', action='store_true', default=False,
                             help='Create a daemon process')
     parser_run.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
@@ -631,9 +638,9 @@ def main():
     parser_run.add_argument('-sh', '--shell', action='store_true', default=False,
                             help='If true, the command will be executed through the shell')
     parser_run.add_argument('-o', '--stdout', type=str, default='pipe',
-                            help=f'Can be {list(STDOUT_VALUES.keys())}')
+                            help=f"Where to direct the process's stdout: {list(STDOUT_VALUES.keys())}")
     parser_run.add_argument('-e', '--stderr', type=str, default='pipe',
-                            help=f'Can be {list(STDERR_VALUES.keys())}')
+                            help=f"Where to direct the process's stderr: {list(STDERR_VALUES.keys())}")
 
     # Create a subparser for the 'KILL' command:
     parser_kill = subparsers.add_parser(CMD_KILL, help='Kill a single instance process by its name')

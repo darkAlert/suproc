@@ -38,12 +38,13 @@ pip3 uninstall suproc -y  --break-system-packages
 Create and run a single instance process:
 - `name`                       Process name to run
 - `-c CMDS, --cmds CMDS`       List of command strings
-- `-f, --force`                Kill the running process and restart it
+- `-f, --force`                Kill the process if it is running
 - `-d, --daemon`               Create a daemon process
 - `-pd PDIR, --pdir PDIR`      PIDLockFile directory (`/var/run/ava/` by default)
 - `-ld LDIR, --ldir LDIR`      Logs directory (`/var/log/ava/` by default)
-- `-p PARENT, --parent PARENT` The parent process ID.
-- `-sh SHELL, --shell SHELL`   If true, the command will be executed through the shell.
+- `-p PARENT, --parent PARENT` The parent process ID
+- `-o STDOUT, --stdout STDOUT` Where to direct the process's stdout: `pipe`, `devnull`
+- `-e STDERR, --stderr STDERR` Where to direct the process's stderr: `pipe`, `stdout`, `devnull`
 
 #### kill
 Kill a single instance process by its name:
