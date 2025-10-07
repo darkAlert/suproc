@@ -9,6 +9,8 @@ import subprocess
 import argparse
 import signal
 import time
+from datetime import datetime
+
 from suproc.utils.logger import AvaLogger
 from suproc.utils.printer import TablePrinter
 from suproc.utils.utils import ask_user_yes_no
@@ -47,7 +49,7 @@ def _print_proc_output(process, logger, stdout, stderr):
             output = stdout.readline()
         except KeyboardInterrupt:
             logger.info(KeyboardInterrupt)
-            break
+            return
 
         if output == '' and process.poll() is not None:
             break
@@ -101,6 +103,33 @@ def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
         return None
 
 
+def _detach_process():
+    parser = argparse.ArgumentParser('uproc-detach')
+    parser.add_argument('--cmd', type=str, required=True)
+    parser.add_argument('--pidfile', type=str, required=True)
+    args = parser.parse_args()
+    cmd = args.cmd
+    pidfile = args.pidfile
+
+    import sys
+    try:
+        process = subprocess.Popen(shlex.split(cmd), start_new_session=False,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+
+        # Check that the process started successfully:
+        for i in range(40):
+            pid = read_pid_from_pidfile(pidfile)
+            if pid is not None and abs(pid) == process.pid:
+                print(f"process started successfully with pid={pid}")
+                sys.exit(0)
+            time.sleep(0.025)
+    except Exception as e:
+        print(e)
+
+    print(f"failed to start process!")
+    sys.exit(-1)
+
+
 def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False, parent=None, logger=None, shell=False,
                              pid_dir=PID_DIR, log_dir=LOG_DIR, stdout=STDOUT, stderr=STDERR):
     if cmds is None:
@@ -136,40 +165,56 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
     # Create a daemon:
     if daemon:
         cmd_list = '" "'.join(cmd for cmd in cmds)
-        cmd = f'{PKJ_NAME} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()} --cmds "{cmd_list}"'
-        cmd += f'--stdout={stdout} --stderr={stderr}'
-        if shell:
-            cmd += ' --shell'
-
+        cmd = (f'{PKJ_NAME} {CMD_RUN} {name} --pdir={pid_dir} --ldir={log_dir} --parent={os.getpid()}'
+               f' --stdout={stdout} --stderr={stderr}'
+               f' {"--shell" if shell else ""}'
+               f' --cmds "{cmd_list}"')
         try:
             with pidlockfile.PIDLockFile(_lockfile, timeout=0.1):       # global lock
-
-                # Check the PIDLockFile of the created process:
+                # Check the pidfile of the process being created::
                 if os.path.exists(pidfile) and pidlockfile.PIDLockFile(pidfile).is_locked():
                     logger.error(f"Could not acquire lock on {pidfile}. Another instance might be running!")
                     return _clear_global_lockfile(_lockfile, -1)
 
                 # Run detached process:
-                process = subprocess.Popen(shlex.split(cmd), start_new_session=True,
-                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                cmd = f"suproc-detach --cmd='{cmd}' --pidfile={pidfile}"
+                process = subprocess.Popen(shlex.split(cmd), start_new_session=True, text=True,
+                                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                            stdin=subprocess.DEVNULL)
+                stdout, stderr = process.communicate()
+                if process.returncode == 0:
+                    # Read PID:
+                    try:
+                        pid = read_pid_from_pidfile(pidfile)
+                        pid = int(pid)
+                    except Exception as e:
+                        logger.error(e)
+                        logger.error(f"Failed to read PID from: '{pidfile}'!")
+                    logger.info(f"Daemon '{name}' with PID:{pid} successfully created")
+                    return _clear_global_lockfile(_lockfile, abs(pid))
+                else:
+                    logger.error(f'stdout: {stdout}')
+                    logger.error(f'stderr: {stderr}')
+                    logger.error(f'Cannot create a daemon with pidfile={pidfile}!')
+                    return _clear_global_lockfile(_lockfile, -2)
 
                 # Check that the process started successfully and created a lock file:
-                for i in range(20):
-                    pid = read_pid_from_pidfile(pidfile)
-                    if pid is not None and abs(pid) == process.pid:
-                        logger.info(f'Daemon with PID:{process.pid} successfully created!')
-                        return _clear_global_lockfile(_lockfile, process.pid)
-                    time.sleep(0.05)
-
-                logger.error(f'Cannot create a daemon with pidfile={pidfile}!')
-                return _clear_global_lockfile(_lockfile, -2)
+                # for i in range(20):
+                #     pid = read_pid_from_pidfile(pidfile)
+                #     if pid is not None and abs(pid) == process.pid:
+                #         logger.info(f'Daemon with PID:{process.pid} successfully created!')
+                #         return _clear_global_lockfile(_lockfile, process.pid)
+                #     time.sleep(0.05)
+                #
+                # logger.error(f'Cannot create a daemon with pidfile={pidfile}!')
+                # return _clear_global_lockfile(_lockfile, -2)
 
         except pidlockfile.LockTimeout:
             logger.error(f"Could not acquire lock on {_lockfile}")
             return -3
         except Exception as e:
             logger.error(e)
+            logger.error(f"An error occurred while attempting to lock '{_lockfile}'!")
             return -4
 
     # Parse and check stdout and stderr arguments:
@@ -197,12 +242,14 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
             else:
-                logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)} ===')
+                logger.info(os.setsid())
+                t = datetime.now().isoformat(timespec='seconds')
+                logger.info(f'{PID_HEADER}{os.getpid()}, {t}, commands:{len(cmds)} ===')
 
             # Run the attached process and execute a sequence of commands:
             for i, cmd in enumerate(cmds):
                 if parent is not None or len(cmds) > 1:
-                    logger.info(f'= Executing cmd #{i+1}: "{cmd}"')
+                    logger.info(f'= Executing #{i+1}: "{cmd}"')
                 try:
                     # Adjust environment variables:
                     my_env = os.environ.copy()
@@ -217,9 +264,10 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     except Exception as e:
                         logger.error(f'{e}')
 
+                    process.wait()
                     returncode = process.returncode
                     if parent is not None:
-                        logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
+                        logger.info(f'= #{i+1} finished with exit code: {returncode}')
 
                     # log_path = os.path.join(log_dir, name + '.log')
                     # with open(log_path, 'a') as stdout_f:
@@ -245,22 +293,25 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     logger.warning(f'KeyboardInterrupt')
                     return -9
                 except Exception as e:
-                    logger.error(f'{e}')
+                    logger.error(e)
+                    logger.error(f"Failed to execute: '{cmd}'")
                     return -4
 
                 if returncode != 0:
                     if i+1 < len(cmds):
                         logger.info(f'= Aborted! The last command completed with a non-zero returncode!')
                     break
-            if parent is not None or len(cmds) > 1:
-                logger.info(f'= Execution completed.')
+
+        if parent is not None or len(cmds) > 1:
+            logger.info(f'= Execution completed.')
         return returncode
 
     except pidlockfile.LockTimeout:
         logger.error(f"Could not acquire lock on {pidfile}. Another instance might be running.")
         return -1
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        logger.error(e)
+        logger.error(f"An error occurred while attempting to lock '{pidfile}'!")
         return -4
 
 
