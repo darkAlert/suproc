@@ -242,7 +242,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
             else:
-                os.setsid()
+                if parent != 0:
+                    os.setsid()  # set the process as a daemon
                 t = datetime.now().isoformat(timespec='seconds')
                 logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)}, time:{t} ===')
 
