@@ -242,9 +242,9 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
             else:
-                logger.info(os.setsid())
+                os.setsid()
                 t = datetime.now().isoformat(timespec='seconds')
-                logger.info(f'{PID_HEADER}{os.getpid()}, {t}, commands:{len(cmds)} ===')
+                logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)}, time:{t} ===')
 
             # Run the attached process and execute a sequence of commands:
             for i, cmd in enumerate(cmds):
