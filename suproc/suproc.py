@@ -298,7 +298,9 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     #         logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
 
                 except KeyboardInterrupt:
-                    logger.warning(f'KeyboardInterrupt')
+                    logger.warning(f'Process interrupted: received SIGINT')
+                    if process.pid is not None:
+                        os.kill(process.pid, signal.SIGINT)    # Send SIGINT to child process
                     return -9
                 except Exception as e:
                     logger.error(e)
