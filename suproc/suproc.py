@@ -385,8 +385,16 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
                 logger.error(f"Process '{name}:{abs(pid)}' cannot be killed because it is attached to parent:{cur_pid}!"
                              f" Use '--force' to force it to kill")
                 return -3
-            os.kill(abs(pid), signal.SIGTERM)
-            logger.info(f"Process killed: '{name}:{abs(pid)}'")
+            # Trye SIGING first:
+            sig = signal.SIGINT
+            os.kill(abs(pid), sig)
+            try:
+                os.kill(abs(pid), 0)
+                sig = signal.SIGTERM
+                os.kill(abs(pid), sig)
+            except ProcessLookupError:
+                pass
+            logger.info(f"Process killed with {'SIGINT' if sig == signal.SIGINT else 'SIGTERM'}: '{name}:{abs(pid)}'")
         except ProcessLookupError:
             if not purge:
                 logger.error(f"No alive process: '{name}:{abs(pid)}'! Use --purge to delete its PID file")
