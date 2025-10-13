@@ -18,7 +18,7 @@ from suproc import __version__
 
 PKJ_NAME = 'suproc'
 CMD_RUN = 'run'
-CMD_KILL = 'kill'
+CMD_STOP = 'stop'
 CMD_LOG = 'log'
 CMD_RUNS = 'runs'
 CMD_LOGS = 'logs'
@@ -55,7 +55,7 @@ def _print_proc_output(process, logger, stdout, stderr):
         try:
             output = stdout.readline()
         except KeyboardInterrupt:
-            logger.info(KeyboardInterrupt)
+            logger.info('Received SIGINT (KeyboardInterrupt)')
             return
 
         if output == '' and process.poll() is not None:
@@ -260,19 +260,18 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing #{i+1}: "{cmd}"')
                 try:
+                    cmd = cmd if shell else shlex.split(cmd)
+
                     # Adjust environment variables:
                     my_env = os.environ.copy()
                     my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
 
-                    cmd = cmd if shell else shlex.split(cmd)
                     process = subprocess.Popen(cmd, env=my_env, bufsize=-1, text=True, shell=shell,
                                                stdout=stdout, stderr=stderr, stdin=stdin)
                     try:
                         _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
                     except Exception as e:
                         logger.error(f'{e}')
-                    finally:
-                        logger.info("Receiver process exiting0.")
 
                     process.wait()
                     returncode = process.returncode
@@ -301,15 +300,13 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
 
                 except KeyboardInterrupt:
                     logger.warning(f'Process interrupted: received SIGINT')
-                    if process.pid is not None:
-                        os.kill(process.pid, signal.SIGINT)    # Send SIGINT to child process
+                    # if process.pid is not None:
+                    #     os.kill(process.pid, signal.SIGINT)    # Send SIGINT to child process
                     return -9
                 except Exception as e:
                     logger.error(e)
                     logger.error(f"Failed to execute: '{cmd}'")
                     return -4
-                finally:
-                    logger.info("Receiver process exiting1.")
 
                 if returncode != 0:
                     if i+1 < len(cmds):
@@ -327,11 +324,9 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
         logger.error(e)
         logger.error(f"An error occurred while attempting to lock '{pidfile}'!")
         return -4
-    finally:
-        logger.info("Receiver process exiting2.")
 
 
-def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
+def kill_proc(name, force=False, kill=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
               killer_proc: None | str = KILLER_PROC, purge=False):
     logger = AvaLogger.get_logger(PKJ_NAME)
 
@@ -340,10 +335,10 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
     if killer_proc is not None and len(killer_proc) != 0:
         # Create a killer process and try to kill the target process in it:
         if killer_proc == name:
-            logger.error(f"Unable to kill the killer process: '{killer_proc}'!")
+            logger.error(f"Unable to stop the killer process: '{killer_proc}'!")
             return -1
 
-        cmd = f'{PKJ_NAME} {CMD_KILL} {name} -pd={pid_dir} -ld={log_dir} --no-killer-proc'
+        cmd = f'{PKJ_NAME} {CMD_STOP} {name} -pd={pid_dir} -ld={log_dir} --no-killer-proc'
         if force:
             cmd += ' --force'
         if purge:
@@ -391,16 +386,31 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
                 logger.error(f"Process '{name}:{abs(pid)}' cannot be killed because it is attached to parent:{cur_pid}!"
                              f" Use '--force' to force it to kill")
                 return -3
-            # Trye SIGING first:
-            sig = signal.SIGINT
-            os.kill(abs(pid), sig)
-            # try:
-            #     os.kill(abs(pid), 0)
-            #     sig = signal.SIGTERM
-            #     os.kill(abs(pid), sig)
-            # except ProcessLookupError:
-            #     pass
-            logger.info(f"Process killed with {'SIGINT' if sig == signal.SIGINT else 'SIGTERM'}: '{name}:{abs(pid)}'")
+
+            # Send SIGINT:
+            if not kill:
+                os.kill(abs(pid), signal.SIGINT)
+                try:
+                    for i in range(10):
+                        os.kill(abs(pid), 0)
+                        time.sleep(0.1)
+                except ProcessLookupError:
+                    logger.info(f"Process stopped: '{name}:{abs(pid)}'")
+                else:
+                    logger.warning(f"Failed to stop process: '{name}:{abs(pid)}'! Use --kill to send SIGTERM")
+                    return -5
+
+            # Send SIGTERM:
+            else:
+                try:
+                    os.kill(abs(pid), signal.SIGTERM)
+                    os.kill(abs(pid), 0)
+                except ProcessLookupError:
+                    logger.info(f"Process killed: '{name}:{abs(pid)}'")
+                else:
+                    logger.warning(f"Failed to kill process: '{name}:{abs(pid)}'!")
+                    return -5
+
         except ProcessLookupError:
             if not purge:
                 logger.error(f"No alive process: '{name}:{abs(pid)}'! Use --purge to delete its PID file")
@@ -659,16 +669,18 @@ def main():
     parser_run.add_argument('-e', '--stderr', type=str, default='pipe',
                             help=f"Where to direct the process's stderr: {list(STDERR_VALUES.keys())}")
 
-    # Create a subparser for the 'KILL' command:
-    parser_kill = subparsers.add_parser(CMD_KILL, help='Kill a single instance process by its name')
+    # Create a subparser for the 'STOP' command:
+    parser_kill = subparsers.add_parser(CMD_STOP, help='Stop a single instance process by its name')
     parser_kill.add_argument('name', type=str, default=None,
-                             help='Process name to kill')
+                             help='Process name to stop')
     parser_kill.add_argument('-nk', '--no-killer-proc', action='store_true', default=False,
                              help='Create a killer process and try to kill the target process in it')
     parser_kill.add_argument('-f', '--force', action='store_true', default=False,
-                             help='If set, the current process may also be killed!')
-    parser_kill.add_argument('-p', '--purge', action='store_true', default=False,
-                             help='Remove the pid file and log file of the killed process')
+                             help='If set, the current process may also be stopped!')
+    parser_kill.add_argument('-k', '--kill', action='store_true', default=False,
+                             help='Send SIGTERM instead of SIGINT')
+    parser_kill.add_argument('--purge', action='store_true', default=False,
+                             help='Remove the pid file and log file of the stopped process')
     parser_kill.add_argument('-pd', '--pdir', type=str, default=PID_DIR,
                              help='PIDLockFile directory')
     parser_kill.add_argument('-ld', '--ldir', type=str, default=LOG_DIR,
@@ -728,12 +740,26 @@ def main():
             stdout=args.stdout,
             stderr=args.stderr
         )
-    elif args.command == CMD_KILL:
+    elif args.command == CMD_STOP:
         if args.no_killer_proc:
-            kill_proc(name=args.name, force=args.force, pid_dir=args.pdir, log_dir=args.ldir, purge=args.purge,
-                      killer_proc=None)
+            kill_proc(
+                name=args.name,
+                force=args.force,
+                kill=args.kill,
+                pid_dir=args.pdir,
+                log_dir=args.ldir,
+                purge=args.purge,
+                killer_proc=None
+            )
         else:
-            kill_proc(name=args.name, force=args.force, pid_dir=args.pdir, log_dir=args.ldir, purge=args.purge)
+            kill_proc(
+                name=args.name,
+                force=args.force,
+                kill=args.kill,
+                pid_dir=args.pdir,
+                log_dir=args.ldir,
+                purge=args.purge
+            )
     elif args.command == CMD_LOG:
         print_log(
             name=args.name,

@@ -46,12 +46,13 @@ Create and run a single instance process:
 - `-o STDOUT, --stdout STDOUT` Where to direct the process's stdout: `pipe`, `devnull`
 - `-e STDERR, --stderr STDERR` Where to direct the process's stderr: `pipe`, `stdout`, `devnull`
 
-#### kill
-Kill a single instance process by its name:
-- `name`                  Process name to kill
-- `-nk, --no-killer-proc` Create a killer process and try to kill the target process in it
-- `-f, --force`           If set, the current process may also be killed!
-- `-p, --purge`           Remove the pid and log files of the killed process
+#### stop
+Stop a single instance process by its name:
+- `name`                  Process name to stop
+- `-nk, --no-killer-proc` Create a killer process and try to stop the target process in it
+- `-f, --force`           If set, the current process may also be stopped!
+- `-k, --kill`            Send SIGTERM instead of SIGINT
+- `--purge`               Remove the pid and log files of the stopped process
 - `-pd PDIR, --pdir PDIR` PIDLockFile directory
 - `-ld LDIR, --ldir LDIR` Logs directory
 
