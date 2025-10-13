@@ -260,13 +260,12 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                 if parent is not None or len(cmds) > 1:
                     logger.info(f'= Executing #{i+1}: "{cmd}"')
                 try:
-                    # # Adjust environment variables:
-                    # my_env = os.environ.copy()
-                    # my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
-                    # env = my_env,
+                    # Adjust environment variables:
+                    my_env = os.environ.copy()
+                    my_env['PYTHONUNBUFFERED'] = '1'                               # to flush python output buffer
 
                     cmd = cmd if shell else shlex.split(cmd)
-                    process = subprocess.Popen(cmd, bufsize=-1, text=True, shell=shell,
+                    process = subprocess.Popen(cmd, env=my_env, bufsize=-1, text=True, shell=shell,
                                                stdout=stdout, stderr=stderr, stdin=stdin)
                     try:
                         _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
