@@ -52,11 +52,7 @@ def get_logger(name: str = None, log_dir=LOG_DIR) -> AvaLogger:
 def _print_proc_output(process, logger, stdout, stderr):
     # Print stdout / stderr:
     while True:
-        try:
-            output = stdout.readline()
-        except KeyboardInterrupt:
-            logger.info('Received SIGINT (KeyboardInterrupt)')
-            return
+        output = stdout.readline()
 
         if output == '' and process.poll() is not None:
             break
@@ -270,10 +266,12 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                                                stdout=stdout, stderr=stderr, stdin=stdin)
                     try:
                         _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
-                    except Exception as e:
-                        logger.error(f'{e}')
+                    except KeyboardInterrupt:
+                        logger.info('Process interrupted: received SIGINT')
+                        process.terminate()
+                    else:
+                        process.wait()
 
-                    process.wait()
                     returncode = process.returncode
                     if parent is not None:
                         logger.info(f'= #{i+1} finished with exit code: {returncode}')
@@ -298,11 +296,6 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     #     if parent is not None:
                     #         logger.info(f'= cmd #{i+1} finished with exit code: {returncode}')
 
-                except KeyboardInterrupt:
-                    logger.warning(f'Process interrupted: received SIGINT')
-                    # if process.pid is not None:
-                    #     os.kill(process.pid, signal.SIGINT)    # Send SIGINT to child process
-                    return -9
                 except Exception as e:
                     logger.error(e)
                     logger.error(f"Failed to execute: '{cmd}'")
