@@ -271,6 +271,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                         _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
                     except Exception as e:
                         logger.error(f'{e}')
+                    finally:
+                        logger.info("Receiver process exiting0.")
 
                     process.wait()
                     returncode = process.returncode
@@ -306,6 +308,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     logger.error(e)
                     logger.error(f"Failed to execute: '{cmd}'")
                     return -4
+                finally:
+                    logger.info("Receiver process exiting1.")
 
                 if returncode != 0:
                     if i+1 < len(cmds):
@@ -323,6 +327,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
         logger.error(e)
         logger.error(f"An error occurred while attempting to lock '{pidfile}'!")
         return -4
+    finally:
+        logger.info("Receiver process exiting2.")
 
 
 def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
