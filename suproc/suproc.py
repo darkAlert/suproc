@@ -394,12 +394,12 @@ def kill_proc(name, force=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
             # Trye SIGING first:
             sig = signal.SIGINT
             os.kill(abs(pid), sig)
-            try:
-                os.kill(abs(pid), 0)
-                sig = signal.SIGTERM
-                os.kill(abs(pid), sig)
-            except ProcessLookupError:
-                pass
+            # try:
+            #     os.kill(abs(pid), 0)
+            #     sig = signal.SIGTERM
+            #     os.kill(abs(pid), sig)
+            # except ProcessLookupError:
+            #     pass
             logger.info(f"Process killed with {'SIGINT' if sig == signal.SIGINT else 'SIGTERM'}: '{name}:{abs(pid)}'")
         except ProcessLookupError:
             if not purge:
