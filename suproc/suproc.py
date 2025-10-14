@@ -267,7 +267,7 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     try:
                         _print_proc_output(process, logger, stdout=process.stdout, stderr=process.stderr)
                     except KeyboardInterrupt:
-                        logger.info('Process interrupted: received SIGINT')
+                        logger.warning('Process interrupted: received SIGINT')
                         process.terminate()
                     else:
                         process.wait()
@@ -320,8 +320,9 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
 
 
 def kill_proc(name, force=False, kill=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
-              killer_proc: None | str = KILLER_PROC, purge=False):
-    logger = AvaLogger.get_logger(PKJ_NAME)
+              killer_proc: None | str = KILLER_PROC, purge=False, logger=None):
+    if logger is None:
+        logger = AvaLogger.get_logger(PKJ_NAME)
 
     pidfile = str(os.path.join(pid_dir, name + '.pid'))
 
@@ -338,7 +339,7 @@ def kill_proc(name, force=False, kill=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
             cmd += ' --purge'
 
         if run_single_instance_proc(name=killer_proc, pid_dir=pid_dir, cmds=[cmd]) < 0:
-            return
+            return -6
 
         # Remove the PID file of the killed process:
         if (os.path.exists(pidfile) and purge
