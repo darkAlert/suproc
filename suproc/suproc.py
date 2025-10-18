@@ -77,7 +77,7 @@ def _clear_global_lockfile(lockfile, returncode=0):
 
 
 def _detach_process():
-    parser = argparse.ArgumentParser('uproc-detach')
+    parser = argparse.ArgumentParser('suproc-detach')
     parser.add_argument('--cmd', type=str, required=True)
     parser.add_argument('--pidfile', type=str, required=True)
     args = parser.parse_args()
@@ -86,8 +86,8 @@ def _detach_process():
 
     import sys
     try:
-        # Set the process as the leader of that session (set as a daemon):
-        os.setsid()
+        # # Set the process as the leader of that session (set as a daemon):
+        # os.setsid()
 
         process = subprocess.Popen(shlex.split(cmd), start_new_session=False,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
@@ -248,6 +248,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
                     pf.write("-{0}\n".format(os.getpid()))      # invert PID in pidfile for a non-daemon process
                     pf.flush()
             else:
+                # Set the process as the leader of that session (set as a daemon):
+                os.setsid()
                 t = datetime.now().isoformat(timespec='seconds')
                 logger.info(f'{PID_HEADER}{os.getpid()}, commands:{len(cmds)}, time:{t} ===')
 
@@ -342,7 +344,7 @@ def kill_proc(name, force=False, kill=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
             return -6
 
         # Remove the PID file of the killed process:
-        if (os.path.exists(pidfile) and purge
+        if (purge and os.path.exists(pidfile)
                 and ask_user_yes_no(f"Delete '{name}' PID file {pidfile}? (yes/no): ", logger)):
             _lockfile = str(os.path.join(pid_dir, LOCK_PROC + '.pid'))
             with pidlockfile.PIDLockFile(_lockfile, timeout=1):          # global lock
@@ -356,7 +358,7 @@ def kill_proc(name, force=False, kill=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
 
         # Remove the LOG file of the killed process:
         log_file = os.path.join(log_dir, name + '.log')
-        if (os.path.exists(log_file) and purge
+        if (purge and os.path.exists(log_file)
                 and ask_user_yes_no(f"Delete '{name}' LOG file {log_file}? (yes/no): ", logger)):
             _lockfile = str(os.path.join(pid_dir, LOCK_PROC + '.pid'))
             with pidlockfile.PIDLockFile(_lockfile, timeout=1):  # global lock

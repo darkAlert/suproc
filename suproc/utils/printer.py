@@ -3,6 +3,7 @@ AVA Single Unique Process
 © AVA, 2025
 """
 
+
 class TablePrinter:
     def __init__(self, header: str, alignment=None, logger=None):
         self.logger = logger
