@@ -310,7 +310,8 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
 
         if parent is not None or len(cmds) > 1:
             logger.info(f'= Execution completed.')
-        return returncode
+
+        return returncode if returncode is not None else -10
 
     except pidlockfile.LockTimeout:
         logger.error(f"Could not acquire lock on {pidfile}. Another instance might be running.")

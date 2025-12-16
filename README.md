@@ -11,7 +11,7 @@ bash install.sh
 
 ### Installation via pip
 ```
-pip3 install git+https://github.com/darkAlert/suproc.git#egg=suproc
+sudo pip3 install git+https://github.com/darkAlert/suproc.git#egg=suproc  --break-system-packages
 suproc-init
 ```
 Before using the package, you have to run `suproc-init` to initialize it and create directories for the PID and LOG files.
