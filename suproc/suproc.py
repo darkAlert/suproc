@@ -11,7 +11,7 @@ import signal
 import time
 from datetime import datetime
 
-from suproc.utils.logger import AvaLogger
+from suproc.utils.logger import Logger
 from suproc.utils.printer import TablePrinter
 from suproc.utils.utils import ask_user_yes_no
 from suproc import __version__
@@ -42,11 +42,11 @@ STDERR_VALUES = {
 }
 
 
-def get_logger(name: str = None, log_dir=LOG_DIR) -> AvaLogger:
+def get_logger(name: str = None, log_dir=LOG_DIR) -> Logger:
     if name is None:
-        return AvaLogger.get_logger(PKJ_NAME)
+        return Logger.get_logger(PKJ_NAME)
     else:
-        return AvaLogger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
+        return Logger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
 
 
 def _print_proc_output(process, logger, stdout, stderr):
@@ -106,13 +106,13 @@ def _detach_process():
     sys.exit(-1)
 
 
-def read_pid_from_pidfile(pidfile_path, logger : AvaLogger or None=None):
+def read_pid_from_pidfile(pidfile_path, logger: Logger or None=None):
     """
     Reads the PID from a given PID lock file.
 
     Args:
         pidfile_path (str): The path to the PID lock file.
-        logger (AvaLogger): Logger
+        logger (Logger): Logger
 
     Returns:
         int or None: The PID as an integer if successfully read, otherwise None.
@@ -149,16 +149,16 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
             os.makedirs(log_dir)
     except PermissionError:
         if logger is None:
-            logger = AvaLogger.get_logger(PKJ_NAME)
+            logger = Logger.get_logger(PKJ_NAME)
         logger.error(f"Permission denied: '{pid_dir}' or '{log_dir}'. Try running '{CMD_INIT}' first")
         return -8
 
     # If the process is not a daemon, then write the log to stdout/stderr, otherwise - to a file:
     if logger is None:
         if parent is None:
-            logger = AvaLogger.get_logger(PKJ_NAME)
+            logger = Logger.get_logger(PKJ_NAME)
         else:
-            logger = AvaLogger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
+            logger = Logger.get_logger(f'{PKJ_NAME}.{name}', os.path.join(log_dir, name + '.log'))
 
     # Paths to pids:
     _lockfile = str(os.path.join(pid_dir, LOCK_PROC + '.pid'))
@@ -325,7 +325,7 @@ def run_single_instance_proc(name, cmds: list = None, force=False, daemon=False,
 def kill_proc(name, force=False, kill=False, pid_dir=PID_DIR, log_dir=LOG_DIR,
               killer_proc: None | str = KILLER_PROC, purge=False, logger=None):
     if logger is None:
-        logger = AvaLogger.get_logger(PKJ_NAME)
+        logger = Logger.get_logger(PKJ_NAME)
 
     pidfile = str(os.path.join(pid_dir, name + '.pid'))
 
@@ -432,7 +432,7 @@ def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, rem
                       will be cleared. Otherwise, the log will be cleared up to the session number.
 
     """
-    logger = AvaLogger.get_logger(PKJ_NAME)
+    logger = Logger.get_logger(PKJ_NAME)
 
     # Log file path:
     path = os.path.join(log_dir, name + '.log')
@@ -524,7 +524,7 @@ def print_log(name,  log_dir=LOG_DIR, follow=False, last_n=10, session=None, rem
 
 
 def logs(pid_dir=PID_DIR, log_dir=LOG_DIR, paths=False, clear=False):
-    logger = AvaLogger.get_logger(PKJ_NAME)
+    logger = Logger.get_logger(PKJ_NAME)
 
     # Check directories:
     if not os.path.exists(log_dir):
@@ -581,7 +581,7 @@ def logs(pid_dir=PID_DIR, log_dir=LOG_DIR, paths=False, clear=False):
 
 
 def runs(pid_dir=PID_DIR, show_all=False):
-    logger = AvaLogger.get_logger(PKJ_NAME)
+    logger = Logger.get_logger(PKJ_NAME)
 
     # Check directories:
     if not os.path.exists(pid_dir):
@@ -634,6 +634,38 @@ def runs(pid_dir=PID_DIR, show_all=False):
             # Print:
             table.print_row((name, str(abs(pid)), 'yes' if daemon else 'no', state))
     table.print_special('outer')
+
+
+def is_running(name, pid_dir=PID_DIR):
+    """
+    Returns True if the process 'name' is running, otherwise returns False.
+    """
+    logger = Logger.get_logger(PKJ_NAME)
+
+    # Get pid:
+    pid_path = os.path.join(pid_dir, name + '.pid')
+    pid = read_pid_from_pidfile(pid_path, logger=logger)
+
+    # Check running:
+    locked = pidlockfile.PIDLockFile(pid_path).is_locked() is not None
+
+    # Check if process alive:
+    running = False
+    if pid != 0:
+        try:
+            os.kill(abs(pid), 0)
+            running = True
+        except ProcessLookupError:
+            pass
+
+    if locked != running:
+        logger.warning(f"Process '{name}' (PID:{pid}) may be a zombie "
+                       f"because it is locked={locked} but running={running}!")
+        return False
+    elif running and locked:
+        return True             # process is running!
+    else:
+        return False
 
 
 def main():
@@ -722,7 +754,7 @@ def main():
 
     # Run commands:
     if args.version:
-        logger = AvaLogger.get_logger(PKJ_NAME)
+        logger = Logger.get_logger(PKJ_NAME)
         logger.info(__version__)
     elif args.command == CMD_RUN:
         run_single_instance_proc(

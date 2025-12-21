@@ -5,7 +5,7 @@ AVA Single Unique Process Uninstaller
 import argparse
 import subprocess
 
-from suproc.utils.logger import AvaLogger
+from suproc.utils.logger import Logger
 from suproc.utils.utils import ask_user_yes_no
 from suproc.suproc import PID_DIR, LOG_DIR, CONF_FILE, PKJ_NAME
 
@@ -14,7 +14,7 @@ __NAME__ = 'initializer'
 
 def initialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=False, logger=None):
     if logger is None:
-        logger = AvaLogger.get_logger(f"{PKJ_NAME}-{__NAME__}")
+        logger = Logger.get_logger(f"{PKJ_NAME}-{__NAME__}")
 
     # Get username and user main group:
     import getpass, grp, pwd
@@ -62,7 +62,7 @@ def initialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=False,
 
 def deinitialize(pid_dir=PID_DIR, log_dir=LOG_DIR, conf_file=CONF_FILE, yes=False, logger=None):
     if logger is None:
-        logger = AvaLogger.get_logger(f"{PKJ_NAME}-{__NAME__}")
+        logger = Logger.get_logger(f"{PKJ_NAME}-{__NAME__}")
 
     # 1. Ask user to remove directories and conf file:
     question = f"Remove '{conf_file}', '{pid_dir}' and '{log_dir}'? (yes/no): "

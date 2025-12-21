@@ -6,7 +6,7 @@ import logging
 import sys
 
 
-class AvaLogger:
+class Logger:
     _loggers = {}
 
     @classmethod
@@ -14,9 +14,9 @@ class AvaLogger:
         if name not in cls._loggers:
             if formatter is None:
                 formatter = cls.AvaFormatter()
-            AvaLogger._loggers[name] = (cls._create_logger(name, path=path, formatter=formatter), path)
+            Logger._loggers[name] = (cls._create_logger(name, path=path, formatter=formatter), path)
 
-        logger, _path = AvaLogger._loggers[name]
+        logger, _path = Logger._loggers[name]
         if _path != path:
             logger.warning(f"Logger '{name}' is already created with a different log path: '{_path}'")
 
