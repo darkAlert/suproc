@@ -645,6 +645,8 @@ def is_running(name, pid_dir=PID_DIR):
     # Get pid:
     pid_path = os.path.join(pid_dir, name + '.pid')
     pid = read_pid_from_pidfile(pid_path, logger=logger)
+    if pid is None:
+        return False
 
     # Check running:
     locked = pidlockfile.PIDLockFile(pid_path).is_locked() is not None
