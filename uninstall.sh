@@ -7,4 +7,4 @@ AVA Single Unique Process Uninstaller
 '
 
 suproc-init --deinit
-pip3 uninstall suproc -y
+pip3 uninstall suproc -y --break-system-packages

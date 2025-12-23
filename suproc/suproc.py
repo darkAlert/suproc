@@ -618,19 +618,16 @@ def runs(pid_dir=PID_DIR, show_all=False):
 
             # The state of locked != running when not a daemon is normal:
             if locked and not running or not locked and running and daemon:
+                state = 'zombie'
                 logger.warning(f"Process '{name}' (PID:{pid}) may be a zombie "
                                f"because it is locked={locked} but running={running}!")
+            elif running:
+                state = 'running'
+            else:
+                state = '-'
 
             if not show_all and (not running or (name == KILLER_PROC or name == LOCK_PROC)):
                 continue
-
-            # Determine state:
-            if running and locked:
-                state = 'running'
-            elif running != locked:
-                state = f"zombie {'L' if locked else 'N'}:{'R' if running else 'N'}"
-            else:
-                state = '-'
 
             # Print:
             table.print_row((name, str(abs(pid)), 'yes' if daemon else 'no', state))
