@@ -9,5 +9,5 @@ AVA Single Unique Process Installer
 rm -rf ./dist
 python3 -m build
 pip3 uninstall suproc -y
-pip3 install dist/suproc-0.11.11a-py3-none-any.whl
+pip3 install dist/suproc-0.11.11b-py3-none-any.whl
 #suproc-init

@@ -616,7 +616,8 @@ def runs(pid_dir=PID_DIR, show_all=False):
                 except ProcessLookupError:
                     pass
 
-            if locked != running:
+            # The state of locked != running when not a daemon is normal:
+            if locked and not running or not locked and running and daemon:
                 logger.warning(f"Process '{name}' (PID:{pid}) may be a zombie "
                                f"because it is locked={locked} but running={running}!")
 
@@ -660,7 +661,7 @@ def is_running(name, pid_dir=PID_DIR):
         except ProcessLookupError:
             pass
 
-    if locked != running:
+    if locked and not running or not locked and running and pid > 0:
         logger.warning(f"Process '{name}' (PID:{pid}) may be a zombie "
                        f"because it is locked={locked} but running={running}!")
         return False
